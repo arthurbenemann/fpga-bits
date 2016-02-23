@@ -2,7 +2,7 @@
 -- Company: 
 -- Engineer:
 --
--- Create Date:   20:34:52 02/22/2016
+-- Create Date:   10:59:29 02/23/2016
 -- Design Name:   
 -- Module Name:   C:/Users/Arthur/Documents/FPGA_temp/serial_out/tb_top.vhd
 -- Project Name:  serial_out
@@ -42,8 +42,9 @@ ARCHITECTURE behavior OF tb_top IS
     COMPONENT topModule
     PORT(
          CLK : IN  std_logic;
-         SW : IN  std_logic_vector(7 downto 0);
-         LED : OUT  std_logic_vector(7 downto 0);
+         GPIO0 : OUT  std_logic;
+         GPIO1 : OUT  std_logic;
+         RX : IN  std_logic;
          TX : OUT  std_logic
         );
     END COMPONENT;
@@ -51,22 +52,25 @@ ARCHITECTURE behavior OF tb_top IS
 
    --Inputs
    signal CLK : std_logic := '0';
-   signal SW : std_logic_vector(7 downto 0) := (others => '0');
+   signal RX : std_logic := '1';
 
  	--Outputs
-   signal LED : std_logic_vector(7 downto 0);
+   signal GPIO0 : std_logic;
+   signal GPIO1 : std_logic;
    signal TX : std_logic;
 
    -- Clock period definitions
-   constant CLK_period : time := 31.25 ns;
+   constant clk_period : time := 31.25 ns;
+   constant bit_period : time := 8.68 us;
  
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
    uut: topModule PORT MAP (
           CLK => CLK,
-          SW => SW,
-          LED => LED,
+          GPIO0 => GPIO0,
+          GPIO1 => GPIO1,
+          RX => RX,
           TX => TX
         );
 
@@ -90,7 +94,146 @@ BEGIN
 
       -- insert stimulus here 
 
-      wait;
+
+      wait for 10 us;
+		
+		-- send '0000000'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '0';	-- data
+		wait for bit_period*8;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+		
+		wait for 50 us;
+		
+		-- send '11111111'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '1';	-- data
+		wait for bit_period*8;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+
+		wait for 50 us;	
+
+		-- send '11110000'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+		
+		wait for 50 us;	
+
+		-- send '00001111'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+
+		wait for 50 us;
+				
+		-- send '01010101'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+		
+		
+		-- send '10101010'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+		
+		-- send '01010101'
+		rx <= '0';	-- start bit
+		wait for bit_period*1;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1';	-- data
+		wait for bit_period;
+		rx <= '0';	-- data
+		wait for bit_period;
+		rx <= '1'; 	-- stop bit
+		wait for bit_period*1;
+		
+		wait for 200 us;
+
    end process;
 
 END;

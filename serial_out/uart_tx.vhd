@@ -4,22 +4,21 @@ use IEEE.STD_LOGIC_ARITH.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 use IEEE.MATH_REAL.ALL;
 
-entity uart is Port (
+entity uart_tx is Port (
 	clk : in  std_logic;
 	tx_data : in std_logic_vector(7 downto 0);
 	tx_en : in std_logic;
 	tx_ready : out std_logic;
 	tx  : out std_logic); 
-end uart;
+end uart_tx;
 
-architecture Behavioral of uart is
+architecture Behavioral of uart_tx is
 	constant clock_freq : real := 32.0; -- Mhz
 	constant baudrate : real := 115.2; -- kbits/s
 	
 	signal tx_state : std_logic := '1';
 
 	signal tx_shiftreg : std_logic_vector(9 downto 0) := (others => '1');
-	signal busyshiftreg : std_logic_vector(9 downto 0) := (others => '0');
 	signal baud_counter : std_logic_vector(8 downto 0) := (others => '0');	
 begin
 

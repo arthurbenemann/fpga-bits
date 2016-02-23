@@ -4,48 +4,62 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity topModule is Port ( 
 	CLK : in std_logic;
-	SW : in  STD_LOGIC_VECTOR (7 downto 0);
-   LED : out  STD_LOGIC_VECTOR (7 downto 0);
 	GPIO0: out std_logic;
+	GPIO1: out std_logic;
+	RX: in std_logic;
 	TX: out std_logic);
 end topModule;
 
 architecture Behavioral of topModule is
 
-	component uart port(		
+	component uart_tx port(		
 		clk : in  std_logic;
 		tx_data : in std_logic_vector(7 downto 0);
 		tx_en : in std_logic;
 		tx_ready : out std_logic;
 		tx  : out std_logic); 
 	end component;
+	
+	component uart_rx port (
+		clk : in std_logic;
+		rx :in std_logic;          
+		rx_data : out std_logic_vector(7 downto 0);
+		rx_ready : out std_logic);
+	end component;
 
 	signal counter : std_logic_vector(7 downto 0):= (others=>'0');
 	
 	signal tx_en : std_logic := '0';
+	signal tx_ready : std_logic;
 	signal tx_out : std_logic;
 	signal tx_data : std_logic_vector(7 downto 0):= (others=>'0');
+	signal rx_ready : std_logic;
+	signal rx_data : std_logic_vector(7 downto 0);
 	
 begin
-
-	LED <= SW;
 	TX <= tx_out;
-	GPIO0 <= tx_out;
+	GPIO0 <= RX;
+	GPIO1 <= tx_out;
 	
-	uart1 : uart port map(
+	uart1_tx : uart_tx port map(
 		clk => CLK,
 		tx_data => tx_data,
 		tx_en => tx_en,
-		tx_ready => open,
+		tx_ready => tx_ready,
 		tx => tx_out
 	);
 	
+	uart1_rx: uart_rx port map(
+		clk => CLK,
+		rx => RX,
+		rx_data => rx_data,
+		rx_ready => rx_ready
+	);
 	
-	data : process(clk) begin
+	retransmit : process(clk) begin
 		if rising_edge(clk) then
-			counter <= counter +1;
-			if (counter = x"ff") then
-				tx_data <= tx_data +1;
+			if (rx_ready and tx_ready) = '1' then
+				tx_data <= rx_data + 1;
 				tx_en <= '1';
 			else
 				tx_en <= '0';

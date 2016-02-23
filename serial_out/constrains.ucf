@@ -6,13 +6,14 @@ CONFIG PROHIBIT=P60;
 # FPGA
 NET CLK            LOC="P94"  | IOSTANDARD=LVTTL | PERIOD=31.25ns;               # CLK
 NET "CLK" TNM_NET = CLK;
-#NET RX             LOC="P46"  | IOSTANDARD=LVTTL;                                # RX
+NET RX             LOC="P46"  | IOSTANDARD=LVTTL;                                # RX
 NET TX             LOC="P141" | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # TX
 
 NET GPIO0          LOC="P93"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C2
-#NET GPIO1          LOC="P88"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C3
+NET GPIO1          LOC="P88"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C3
 #NET GPIO2          LOC="P85"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C4
 
+/*
 # LED
 NET LED(0)           LOC="P55"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C13
 NET LED(1)           LOC="P50"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C14
@@ -24,7 +25,6 @@ NET LED(6)           LOC="P126" | IOSTANDARD=LVTTL;                             
 NET LED(7)           LOC="P127" | IOSTANDARD=LVTTL;                                # A9
 
 
-
 # SWITCH
 NET SW(0)            LOC="P116" | IOSTANDARD=LVTTL;                                # A0
 NET SW(1)            LOC="P117" | IOSTANDARD=LVTTL;                                # A1
@@ -34,7 +34,7 @@ NET SW(4)            LOC="P120" | IOSTANDARD=LVTTL;                             
 NET SW(5)            LOC="P62"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C10
 NET SW(6)            LOC="P59"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C11
 NET SW(7)            LOC="P57"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C12
-
+*/
 
 /*
 NET DIR_RIGHT      LOC="P131" | IOSTANDARD=LVTTL;                                # A10

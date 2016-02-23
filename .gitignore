@@ -42,6 +42,7 @@
 *_usage.xml
 *_xst.xrpt
 
+
 # iMPACT generated files
 _impactbatch.log
 impact.xsl
@@ -58,6 +59,9 @@ par_usage_statistics.html
 usage_statistics_webtalk.html
 webtalk.log
 webtalk_pn.xml
+*.xreport
+fuse.xmsgs
+fuseRelaunch.cmd
 
 # generated folders
 iseconfig/
@@ -65,3 +69,11 @@ xlnx_auto_0_xdb/
 xst/
 _ngo/
 _xmsgs/
+
+# simulation outputs
+*.wdb
+*.wcfg
+isim.cmd
+isim.log
+*isim_beh.exe
+*envsettings.html
