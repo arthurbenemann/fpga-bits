@@ -52,6 +52,8 @@ webtalk_impact.xml
 
 # Core Generator generated files
 xaw2verilog.log
+coregen.log
+*.tcl
 
 # project-wide generated files
 *.gise
@@ -62,6 +64,8 @@ webtalk_pn.xml
 *.xreport
 fuse.xmsgs
 fuseRelaunch.cmd
+*.projectmgr
+xil_1.*
 
 # generated folders
 iseconfig/
