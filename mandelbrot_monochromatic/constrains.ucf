@@ -7,6 +7,8 @@ CONFIG PROHIBIT=P60;
 NET CLK            LOC="P94"  | IOSTANDARD=LVTTL | PERIOD=31.25ns;               # CLK
 NET "CLK" TNM_NET = CLK;
 
+
+/*
 # LED
 NET LED(0)           LOC="P55"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C13
 NET LED(1)           LOC="P50"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C14
@@ -28,7 +30,7 @@ NET SW(4)            LOC="P120" | IOSTANDARD=LVTTL;                             
 NET SW(5)            LOC="P62"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C10
 NET SW(6)            LOC="P59"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C11
 NET SW(7)            LOC="P57"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C12
-
+*/
 
 /*
 NET DIR_RIGHT      LOC="P131" | IOSTANDARD=LVTTL;                                # A10
