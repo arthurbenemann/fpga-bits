@@ -43,18 +43,22 @@ architecture Behavioral of mandel_mono is
 
 	component pixel_gen port ( 
 		clk : in  std_logic;
-		x_pixel : in std_logic_vector(9 downto 0);
+		x_pixel : in std_logic_vector(10 downto 0);
 		y_pixel : in std_logic_vector(9 downto 0);
 		color : out std_logic_vector(3 downto 0));
 	end component;
 	
 	signal color : std_logic_vector(3 downto 0);
-	signal x_pixel : std_logic_vector(9 downto 0);
+	signal color_rgb : std_logic_vector(11 downto 0);
+	signal x_pixel : std_logic_vector(10 downto 0);
 	signal y_pixel : std_logic_vector(9 downto 0);
 	
 
 	component vga800x600 port( 
-		clk : IN std_logic;        
+		clk : IN std_logic;      
+		color : in std_logic_vector(11 downto 0);
+		h : out std_logic_vector(10 downto 0);
+		v : out std_logic_vector(9 downto 0);
 		red : OUT std_logic_vector(3 downto 0);
 		green : OUT std_logic_vector(3 downto 0);
 		blue : OUT std_logic_vector(3 downto 0);
@@ -64,8 +68,7 @@ architecture Behavioral of mandel_mono is
 	
 begin
 	
-	x_pixel <= SW(1 downto 0) & SW;
-	y_pixel <= SW(1 downto 0) & SW;
+	LED <= SW;
 	
 	clock_manager1 : clock_manager port map(
 		CLK_IN1 => CLK,
@@ -80,16 +83,22 @@ begin
 		color => color
 	);
 	
+	color_rgb <= color & color & color; -- monochromatic mapping
+	
 	vga_port: vga800x600 port  map(
-		clk => CLK_40,
+		clk => CLK_40,	
+		-- input
+		color => color_rgb,
+		-- logical interface
+		h => x_pixel,
+		v => y_pixel,
+		-- physical interface
 		red => VGA_RED,
 		green => VGA_GREEN,
 		blue => VGA_BLUE,
 		vsync => VGA_VSYNC,
 		hsync => VGA_HSYNC
 	);
-
-	LED <= color & color;
 
 end Behavioral;
 

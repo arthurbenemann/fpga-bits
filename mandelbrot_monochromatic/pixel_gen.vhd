@@ -20,7 +20,7 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity pixel_gen is port ( 
 	clk : in  std_logic;
-	x_pixel : in std_logic_vector(9 downto 0);
+	x_pixel : in std_logic_vector(10 downto 0);
 	y_pixel : in std_logic_vector(9 downto 0);
 	color : out std_logic_vector(3 downto 0));
 end pixel_gen;
@@ -60,7 +60,7 @@ architecture Behavioral of pixel_gen is
 	signal o1,o2,o3 : std_logic;
 	
 begin
-	x0 <= x_pixel & x_pixel(7 downto 0);
+	x0 <= x_pixel & x_pixel(6 downto 0);
 	y0 <= y_pixel & y_pixel(7 downto 0);
 	
 	--y1 <= x0 and y0;

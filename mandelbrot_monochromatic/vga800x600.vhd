@@ -5,6 +5,14 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity vga800x600 is Port ( 
 	clk : in  std_logic; -- 40 MHz
+	-- input
+	color : in std_logic_vector(11 downto 0);
+	
+	-- logical interface
+	h : out std_logic_vector(10 downto 0);
+	v : out std_logic_vector(9 downto 0);
+	
+	-- physical interface
 	red : out std_logic_vector(3 downto 0);
 	green : out std_logic_vector(3 downto 0);
 	blue : out std_logic_vector(3 downto 0);
@@ -18,6 +26,8 @@ architecture Behavioral of vga800x600 is
 	signal vcount : std_logic_vector(9 downto 0) := (others =>'0');
 	
 begin
+	h <= hcount;
+	v <= vcount;
 
 	counters : process(clk) begin
 		if rising_edge(clk) then
@@ -49,9 +59,9 @@ begin
 			
 			-- Colors
 			if hcount < 800 and vcount < 600 then
-				red <= hcount(3 downto 0);
-				green <= "0000";
-				blue <= vcount(3 downto 0);
+				red   <= color(11 downto 8);
+				green <= color( 7 downto 4);
+				blue  <= color( 3 downto 0);
 			else
 				red <= "0000";
 				green <= "0000";
