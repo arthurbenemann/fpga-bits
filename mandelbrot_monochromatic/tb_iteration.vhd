@@ -72,7 +72,7 @@ BEGIN
       -- insert stimulus here 
 		
 		x0<= std_logic_vector(to_signed(+1*(2**15),18));
-		y0<= std_logic_vector(to_signed(+0*(2**15),18));
+		y0<= std_logic_vector(to_signed(+1*(2**15),18));
 		
 		x <= std_logic_vector(to_signed(+1*(2**15),18));
 		y <= std_logic_vector(to_signed(+0*(2**15),18));
