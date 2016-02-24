@@ -70,8 +70,8 @@ ENTITY multiplier IS
 	br: in std_logic_vector(17 downto 0);
 	bi: in std_logic_vector(17 downto 0);
 	clk: in std_logic;
-	pr: out std_logic_vector(17 downto 0);
-	pi: out std_logic_vector(17 downto 0));
+	pr: out std_logic_vector(21 downto 0);
+	pi: out std_logic_vector(21 downto 0));
 END multiplier;
 
 ARCHITECTURE multiplier_a OF multiplier IS
@@ -83,8 +83,8 @@ component wrapped_multiplier
 	br: in std_logic_vector(17 downto 0);
 	bi: in std_logic_vector(17 downto 0);
 	clk: in std_logic;
-	pr: out std_logic_vector(17 downto 0);
-	pi: out std_logic_vector(17 downto 0));
+	pr: out std_logic_vector(21 downto 0);
+	pi: out std_logic_vector(21 downto 0));
 end component;
 
 -- Configuration specification 
@@ -105,7 +105,7 @@ end component;
 			use_dsp_cascades => 1,
 			c_optimize_goal => 1,
 			c_xdevicefamily => "spartan6",
-			c_out_low => 19,
+			c_out_low => 15,
 			c_b_width => 18);
 -- synthesis translate_on
 BEGIN

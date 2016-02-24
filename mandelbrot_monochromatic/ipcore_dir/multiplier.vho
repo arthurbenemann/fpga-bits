@@ -59,8 +59,8 @@ component multiplier
 	br: in std_logic_vector(17 downto 0);
 	bi: in std_logic_vector(17 downto 0);
 	clk: in std_logic;
-	pr: out std_logic_vector(17 downto 0);
-	pi: out std_logic_vector(17 downto 0));
+	pr: out std_logic_vector(21 downto 0);
+	pi: out std_logic_vector(21 downto 0));
 end component;
 
 -- COMP_TAG_END ------ End COMPONENT Declaration ------------

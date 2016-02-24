@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Wed Feb 24 07:18:17 2016
+# Date: Wed Feb 24 21:29:49 2016
 #
 ##############################################################
 #
@@ -47,7 +47,7 @@ CSET latency=1
 CSET multtype=Use_Mults
 CSET optimizegoal=Performance
 CSET outputwidthhigh=36
-CSET outputwidthlow=19
+CSET outputwidthlow=15
 CSET roundmode=Truncate
 CSET sclrcepriority=SCLR_overrides_CE
 CSET syncclear=false
@@ -56,4 +56,4 @@ CSET syncclear=false
 MISC pkg_timestamp=2013-10-13T18:25:28Z
 # END Extra information
 GENERATE
-# CRC: ad8bbfef
+# CRC: 26fac4fa
