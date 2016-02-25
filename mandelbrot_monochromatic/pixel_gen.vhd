@@ -26,53 +26,27 @@ end pixel_gen;
 
 architecture Behavioral of pixel_gen is
 
-	component mandelbrot_iteration port(
+	component mandelbrot_pipeline4 port(
 		clk : IN  std_logic;
 		ov_in : in std_logic; 
 		x,y,x0,y0 : IN std_logic_vector(17 downto 0);   
 		x_out,y_out,x0_out,y0_out : OUT std_logic_vector(17 downto 0);
-		ov : OUT std_logic);
+		ov : std_logic_vector (3 downto 0));
 	end component;
-		
-	signal x1,x2,x3,x0_1,x0_2,x0_3 : std_logic_vector (17 downto 0);
-	signal y1,y2,y3,y0_1,y0_2,y0_3 : std_logic_vector (17 downto 0);
-	signal o1,o2,o3,o4 : std_logic;
+	
+	signal overflow : std_logic_vector (3 downto 0);
 	
 begin
 	
-	iteration1 : mandelbrot_iteration port map(
+	pipeline : mandelbrot_pipeline4 port map(
 		clk => clk,
 		ov_in => '0',
 		x => x0, y => y0, x0 => x0, y0 => y0,     -- inputs
-		x_out => x1, y_out => y1, ov => o1,       -- outputs
-		x0_out=> x0_1, y0_out => y0_1
-	);
-		
-	iteration2 : mandelbrot_iteration port map(
-		clk => clk,
-		ov_in => o1,
-		x => x1, y => y1, x0 => x0_1, y0 => y0_1, -- inputs
-		x_out => x2, y_out => y2, ov => o2,       -- outputs
-		x0_out=> x0_2, y0_out => y0_2
-	);
-	
-	iteration3 : mandelbrot_iteration port map(
-		clk => clk,
-		ov_in => o2,
-		x => x2, y => y2, x0 => x0_2, y0 => y0_2, -- inputs
-		x_out => x3, y_out => y3, ov => o3,       -- outputs
-		x0_out=> x0_3, y0_out => y0_3
-	);
-	
-	iteration4 : mandelbrot_iteration port map(
-		clk => clk,
-		ov_in => o3,
-		x => x3, y => y3, x0 => x0_3, y0 => y0_3, -- inputs
-		x_out => open, y_out => open, ov => o4,   -- outputs
+		x_out => open, y_out => open, ov => overflow, -- outputs
 		x0_out=> open, y0_out => open
 	);
 	
-	color <= not (o1 & o2 & o3 & o4);
+	color <= not (overflow);
 	
 end Behavioral;
 
