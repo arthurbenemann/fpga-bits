@@ -11,6 +11,7 @@ ARCHITECTURE behavior OF tb_iteration IS
     COMPONENT mandelbrot_iteration
     PORT(
          clk : IN  std_logic;
+         ov_in : IN  std_logic;
          x : IN  std_logic_vector(17 downto 0);
          y : IN  std_logic_vector(17 downto 0);
          x0 : IN  std_logic_vector(17 downto 0);
@@ -24,6 +25,7 @@ ARCHITECTURE behavior OF tb_iteration IS
 
    --Inputs
    signal clk : std_logic := '0';
+   signal ov_in : std_logic := '0';	
    signal x : std_logic_vector(17 downto 0) := (others => '0');
    signal y : std_logic_vector(17 downto 0) := (others => '0');
    signal x0 : std_logic_vector(17 downto 0) := (others => '0');
@@ -42,6 +44,7 @@ BEGIN
 	-- Instantiate the Unit Under Test (UUT)
    uut: mandelbrot_iteration PORT MAP (
           clk => clk,
+			 ov_in => ov_in,
           x => x,
           y => y,
           x0 => x0,

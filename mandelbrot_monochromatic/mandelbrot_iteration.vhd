@@ -3,8 +3,7 @@
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.numeric_std.all;
 
 entity mandelbrot_iteration is port(
 	clk : in  std_logic;
@@ -33,11 +32,13 @@ architecture Behavioral of mandelbrot_iteration is
 	end component;
 	
 	signal px,py: std_logic_vector (21 downto 0); -- Q+6.15
-	signal sumx,sumy : std_logic_vector (18 downto 0); -- Q+3.15
+	signal sumx,sumy : signed (18 downto 0); -- Q+3.15
 	
 	signal x0_d1, y0_d1 : std_logic_vector (17 downto 0) := (others =>'0');
 	
 	signal ov_x,ov_y : std_logic;
+	
+	constant escape : signed (18 downto 0) := to_signed(+2*(2**15),19);  -- Q+3.15
 	
 begin
 	
@@ -59,27 +60,15 @@ begin
 	end process;
 	
 	
-	sumx <= px(18 downto 0) + (x0_d1(17) & x0_d1); -- extended x0 to Q+3.15
-	sumy <= py(18 downto 0) + (y0_d1(17) & y0_d1);
+	sumx <= signed(px(18 downto 0)) + signed(x0_d1(17) & x0_d1); -- extended x0 to Q+3.15
+	sumy <= signed(py(18 downto 0)) + signed(y0_d1(17) & y0_d1);
 	
-	x_out <= sumx(17 downto 0); -- constrain to Q+2.15
-	y_out <= sumy(17 downto 0);
+	x_out <= std_logic_vector(sumx(17 downto 0)); -- constrain to Q+2.15
+	y_out <= std_logic_vector(sumy(17 downto 0));
 	
-	ov_x <=  '0' when sumx(18 downto 15) = "0010" else
-				'0' when sumx(18 downto 15) = "0001" else
-				'0' when sumx(18 downto 15) = "0000" else
-				'0' when sumx(18 downto 15) = "1111" else
-				'0' when sumx(18 downto 15) = "1110" else
-				'0' when sumx(18 downto 15) = "1101" else
-				'1';
-				
-	ov_y <=  '0' when sumy(18 downto 15) = "0010" else
-				'0' when sumy(18 downto 15) = "0001" else
-				'0' when sumy(18 downto 15) = "0000" else
-				'0' when sumy(18 downto 15) = "1111" else
-				'0' when sumy(18 downto 15) = "1110" else
-				'0' when sumy(18 downto 15) = "1101" else
-				'1';
+	ov_x <=  '1' when sumx > escape else '1' when sumx < -escape else '0';				
+	ov_y <=  '1' when sumy > escape else '1' when sumy < -escape else	'0';				
 	ov <= ov_x or ov_y or ov_in;
+	
 end Behavioral;
 
