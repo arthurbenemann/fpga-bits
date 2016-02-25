@@ -9,6 +9,7 @@ use IEEE.STD_LOGIC_ARITH.ALL;
 entity mandelbrot_iteration is port(
 	clk : in  std_logic;
 	-- inputs
+	ov_in : in std_logic;
 	x : in std_logic_vector (17 downto 0);
 	y : in std_logic_vector (17 downto 0);
 	x0 : in std_logic_vector (17 downto 0);
@@ -77,6 +78,6 @@ begin
 				'0' when sumy(18 downto 15) = "1111" else
 				'0' when sumy(18 downto 15) = "1110" else
 				'1';
-	ov <= ov_x or ov_y;
+	ov <= ov_x or ov_y or ov_in;
 end Behavioral;
 

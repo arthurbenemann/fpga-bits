@@ -29,6 +29,7 @@ architecture Behavioral of pixel_gen is
 
 	component mandelbrot_iteration port(
 		clk : IN  std_logic;
+		ov_in : in std_logic;
 		x : IN std_logic_vector(17 downto 0);
 		y : IN std_logic_vector(17 downto 0);
 		x0 : IN std_logic_vector(17 downto 0);
@@ -64,23 +65,26 @@ begin
 
 	iteration1 : mandelbrot_iteration port map(
 		clk => clk,
+		ov_in => '0',
 		x => x0, y => y0, x0 => x0, y0 => y0, -- inputs
 		x_out => x1, y_out => y1, ov => o1    -- outputs
 	);
 		
 	iteration2 : mandelbrot_iteration port map(
 		clk => clk,
+		ov_in => o1,
 		x => x1, y => y1, x0 => x0, y0 => y0, -- inputs
 		x_out => x2, y_out => y2, ov => o2    -- outputs
 	);
 	
 	iteration3 : mandelbrot_iteration port map(
 		clk => clk,
+		ov_in => o2,
 		x => x2, y => y2, x0 => x0, y0 => y0, -- inputs
 		x_out => x3, y_out => y3, ov => o3    -- outputs
 	);
 	
-	color <= o1 & o2 & o3 & o3;
+	color <= not (o1 & o2 & o3 & o3);
 	
 end Behavioral;
 
