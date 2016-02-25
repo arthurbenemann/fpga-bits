@@ -50,9 +50,9 @@ architecture Behavioral of pixel_gen is
 	signal x0 : std_logic_vector (17 downto 0); -- Q+2.15
 	signal y0 : std_logic_vector (17 downto 0);
 	
-	signal x1,x2,x3 : std_logic_vector (17 downto 0);
-	signal y1,y2,y3 : std_logic_vector (17 downto 0);
-	signal o1,o2,o3 : std_logic;
+	signal x1,x2,x3,x4 : std_logic_vector (17 downto 0);
+	signal y1,y2,y3,y4 : std_logic_vector (17 downto 0);
+	signal o1,o2,o3,o4 : std_logic;
 	
 begin
 	
@@ -84,7 +84,14 @@ begin
 		x_out => x3, y_out => y3, ov => o3    -- outputs
 	);
 	
-	color <= not (o1 & o2 & o3 & o3);
+	iteration4 : mandelbrot_iteration port map(
+		clk => clk,
+		ov_in => o3,
+		x => x3, y => y3, x0 => x0, y0 => y0, -- inputs
+		x_out => x4, y_out => y4, ov => o4    -- outputs
+	);
+	
+	color <= not (o1 & o2 & o3 & o4);
 	
 end Behavioral;
 
