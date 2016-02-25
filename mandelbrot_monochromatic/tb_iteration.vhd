@@ -37,7 +37,7 @@ ARCHITECTURE behavior OF tb_iteration IS
    signal ov : std_logic;
 
    -- Clock period definitions
-   constant clk_period : time := 12.5 ns;
+   constant clk_period : time := 1 ns;
  
 BEGIN
  
@@ -70,52 +70,77 @@ BEGIN
       -- hold reset state for 100 ns.
       wait for 100 ns;	
 
-      wait for clk_period*10;
+      wait for clk_period*20.5;
 
       -- insert stimulus here 
 		
-		x0<= std_logic_vector(to_signed(+1*(2**15),18));
-		y0<= std_logic_vector(to_signed(+1*(2**15),18));
+--		x0<= std_logic_vector(to_signed(+1*(2**15),18));
+--		y0<= std_logic_vector(to_signed(+1*(2**15),18));
+--		
+--		x <= std_logic_vector(to_signed(+1*(2**15),18));
+--		y <= std_logic_vector(to_signed(+0*(2**15),18));
+--      wait for clk_period*20;
+--		
+--		x <= std_logic_vector(to_signed(-1*(2**15),18));
+--		y <= std_logic_vector(to_signed(+0*(2**15),18));
+--      wait for clk_period*20;
+--
+--		x <= std_logic_vector(to_signed(+0*(2**15),18));
+--		y <= std_logic_vector(to_signed(+1*(2**15),18));
+--      wait for clk_period*20;
+--
+--		x <= std_logic_vector(to_signed(+0*(2**15),18));
+--		y <= std_logic_vector(to_signed(-1*(2**15),18));
+--      wait for clk_period*20;
+--
+--		x <= std_logic_vector(to_signed(+1*(2**15),18));
+--		y <= std_logic_vector(to_signed(+1*(2**15),18));
+--      wait for clk_period*20;
+--
+--		x <= std_logic_vector(to_signed(-1*(2**15),18));
+--		y <= std_logic_vector(to_signed(-1*(2**15),18));
+--      wait for clk_period*20;
+--
+--		x <= std_logic_vector(to_signed(+1*(2**15),18));
+--		y <= std_logic_vector(to_signed(-1*(2**15),18));
+--      wait for clk_period*20;
+--
+--		x <= std_logic_vector(to_signed(-1*(2**15),18));
+--		y <= std_logic_vector(to_signed(1*(2**15),18));
+--      wait for clk_period*20;
+--		
+--		x <= std_logic_vector(to_signed(2*(2**15),18));
+--		y <= std_logic_vector(to_signed(1*(2**15),18));
+--      wait for clk_period*20;
+--		
+--		x <= std_logic_vector(to_signed(2*(2**15),18));
+--		y <= std_logic_vector(to_signed(2*(2**15),18));
+--      wait for clk_period*20;
 		
-		x <= std_logic_vector(to_signed(+1*(2**15),18));
-		y <= std_logic_vector(to_signed(+0*(2**15),18));
-      wait for clk_period*10;
-		
-		x <= std_logic_vector(to_signed(-1*(2**15),18));
-		y <= std_logic_vector(to_signed(+0*(2**15),18));
-      wait for clk_period*10;
-
-		x <= std_logic_vector(to_signed(+0*(2**15),18));
-		y <= std_logic_vector(to_signed(+1*(2**15),18));
-      wait for clk_period*10;
-
-		x <= std_logic_vector(to_signed(+0*(2**15),18));
-		y <= std_logic_vector(to_signed(-1*(2**15),18));
-      wait for clk_period*10;
-
-		x <= std_logic_vector(to_signed(+1*(2**15),18));
-		y <= std_logic_vector(to_signed(+1*(2**15),18));
-      wait for clk_period*10;
-
-		x <= std_logic_vector(to_signed(-1*(2**15),18));
-		y <= std_logic_vector(to_signed(-1*(2**15),18));
-      wait for clk_period*10;
-
-		x <= std_logic_vector(to_signed(+1*(2**15),18));
-		y <= std_logic_vector(to_signed(-1*(2**15),18));
-      wait for clk_period*10;
-
-		x <= std_logic_vector(to_signed(-1*(2**15),18));
-		y <= std_logic_vector(to_signed(1*(2**15),18));
-      wait for clk_period*10;
-		
-		x <= std_logic_vector(to_signed(2*(2**15),18));
-		y <= std_logic_vector(to_signed(1*(2**15),18));
-      wait for clk_period*10;
-		
+		wait for clk_period*100;
 		x <= std_logic_vector(to_signed(2*(2**15),18));
 		y <= std_logic_vector(to_signed(2*(2**15),18));
-      wait for clk_period*10;
+      wait for clk_period*1;
+		x <= std_logic_vector(to_signed(+1*(2**15),18));
+		y <= std_logic_vector(to_signed(+1*(2**15),18));
+      wait for clk_period*1;
+		x <= std_logic_vector(to_signed(+0*(2**15),18));
+		y <= std_logic_vector(to_signed(+0*(2**15),18));
+      wait for clk_period*1;
+		x <= std_logic_vector(to_signed(+1*(2**15),18));
+		y <= std_logic_vector(to_signed(+1*(2**15),18));
+		x0 <= std_logic_vector(to_signed(-1*(2**15),18));
+		y0 <= std_logic_vector(to_signed(+1*(2**15),18));
+      wait for clk_period*1;
+		x <= std_logic_vector(to_signed(+0*(2**15),18));
+		y <= std_logic_vector(to_signed(+0*(2**15),18));
+		x0 <= std_logic_vector(to_signed(-0*(2**15),18));
+		y0 <= std_logic_vector(to_signed(+0*(2**15),18));
+      wait for clk_period*1;
+		ov_in <= '1';
+      wait for clk_period*1;
+		ov_in <= '0';
+		wait for clk_period*100;
 
 
       wait;

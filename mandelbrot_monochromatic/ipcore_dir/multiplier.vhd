@@ -97,7 +97,7 @@ end component;
 			c_out_high => 36,
 			c_verbosity => 0,
 			c_mult_type => 1,
-			c_latency => 1,
+			c_latency => 4,
 			c_xdevice => "xc6slx9",
 			c_has_ce => 0,
 			single_output => 0,

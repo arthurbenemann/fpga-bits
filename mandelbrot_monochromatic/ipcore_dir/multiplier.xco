@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Wed Feb 24 21:29:49 2016
+# Date: Thu Feb 25 04:25:39 2016
 #
 ##############################################################
 #
@@ -43,7 +43,7 @@ CSET aportwidth=18
 CSET bportwidth=18
 CSET clockenable=false
 CSET component_name=multiplier
-CSET latency=1
+CSET latency=4
 CSET multtype=Use_Mults
 CSET optimizegoal=Performance
 CSET outputwidthhigh=36
@@ -56,4 +56,4 @@ CSET syncclear=false
 MISC pkg_timestamp=2013-10-13T18:25:28Z
 # END Extra information
 GENERATE
-# CRC: 26fac4fa
+# CRC: c1fb12b3
