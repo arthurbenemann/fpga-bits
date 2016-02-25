@@ -70,6 +70,7 @@ begin
 				'0' when sumx(18 downto 15) = "0000" else
 				'0' when sumx(18 downto 15) = "1111" else
 				'0' when sumx(18 downto 15) = "1110" else
+				'0' when sumx(18 downto 15) = "1101" else
 				'1';
 				
 	ov_y <=  '0' when sumy(18 downto 15) = "0010" else
@@ -77,6 +78,7 @@ begin
 				'0' when sumy(18 downto 15) = "0000" else
 				'0' when sumy(18 downto 15) = "1111" else
 				'0' when sumy(18 downto 15) = "1110" else
+				'0' when sumy(18 downto 15) = "1101" else
 				'1';
 	ov <= ov_x or ov_y or ov_in;
 end Behavioral;
