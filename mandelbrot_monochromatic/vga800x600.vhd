@@ -35,6 +35,8 @@ architecture Behavioral of vga800x600 is
 	constant v_sync 		: integer := 4;
 	constant v_total		: integer := 628;	
 	
+	constant pipeline_delay : integer := 7;
+	
 begin
 	h <= hcount;
 	v <= vcount;
@@ -54,14 +56,14 @@ begin
 			end if;
 			
 			-- Hsync
-			if hcount >= (h_visible+h_front) and hcount < (h_visible+h_front+h_sync) then
+			if hcount >= (h_visible+h_front+ pipeline_delay) and hcount < (h_visible+h_front+h_sync + pipeline_delay) then
 				hsync <= '0';
 			else
 				hsync <= '1';
 			end if;			
 			
 			-- Vsync
-			if vcount >= (v_visible+v_front) and vcount < (v_visible+v_front+v_sync) then
+			if vcount >= (v_visible+v_front+ pipeline_delay) and vcount < (v_visible+v_front+v_sync + pipeline_delay) then
 				vsync <= '0';
 			else
 				vsync <= '1';
