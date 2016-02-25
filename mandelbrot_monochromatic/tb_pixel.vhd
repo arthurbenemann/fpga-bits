@@ -2,9 +2,9 @@
 -- Company: 
 -- Engineer:
 --
--- Create Date:   17:43:31 02/24/2016
+-- Create Date:   00:53:43 02/25/2016
 -- Design Name:   
--- Module Name:   C:/Users/Arthur/Documents/GitHub/fpga-bits/mandelbrot_monochromatic/tb_pixel_gen.vhd
+-- Module Name:   C:/Users/Arthur/Documents/GitHub/fpga-bits/mandelbrot_monochromatic/tb_pixel.vhd
 -- Project Name:  mandelbrot_monochromatic
 -- Target Device:  
 -- Tool versions:  
@@ -32,18 +32,18 @@ USE ieee.std_logic_1164.ALL;
 -- arithmetic functions with Signed or Unsigned values
 USE ieee.numeric_std.ALL;
  
-ENTITY tb_pixel_gen IS
-END tb_pixel_gen;
+ENTITY tb_pixel IS
+END tb_pixel;
  
-ARCHITECTURE behavior OF tb_pixel_gen IS 
+ARCHITECTURE behavior OF tb_pixel IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
  
     COMPONENT pixel_gen
     PORT(
          clk : IN  std_logic;
-         x_pixel : IN  std_logic_vector(10 downto 0);
-         y_pixel : IN  std_logic_vector(9 downto 0);
+         x0 : IN  std_logic_vector(17 downto 0);
+         y0 : IN  std_logic_vector(17 downto 0);
          color : OUT  std_logic_vector(3 downto 0)
         );
     END COMPONENT;
@@ -51,8 +51,8 @@ ARCHITECTURE behavior OF tb_pixel_gen IS
 
    --Inputs
    signal clk : std_logic := '0';
-   signal x_pixel : std_logic_vector(10 downto 0) := (others => '0');
-   signal y_pixel : std_logic_vector(9 downto 0) := (others => '0');
+   signal x0 : std_logic_vector(17 downto 0) := (others => '0');
+   signal y0 : std_logic_vector(17 downto 0) := (others => '0');
 
  	--Outputs
    signal color : std_logic_vector(3 downto 0);
@@ -65,8 +65,8 @@ BEGIN
 	-- Instantiate the Unit Under Test (UUT)
    uut: pixel_gen PORT MAP (
           clk => clk,
-          x_pixel => x_pixel,
-          y_pixel => y_pixel,
+          x0 => x0,
+          y0 => y0,
           color => color
         );
 
@@ -86,14 +86,12 @@ BEGIN
       -- hold reset state for 100 ns.
       wait for 100 ns;	
 
-      wait for clk_period*10.5;
+      wait for clk_period*100.5;
 
       -- insert stimulus here 
+		y0 <= std_logic_vector(to_signed(2*(2**15),18));
+		--y0 <= std_logic_vector(to_signed(1*(2**13),18));
 		
-		x_pixel <= std_logic_vector(to_unsigned(400,x_pixel'length));
-		y_pixel <= std_logic_vector(to_unsigned(300,y_pixel'length));
-      wait for clk_period*10;
-
       wait;
    end process;
 

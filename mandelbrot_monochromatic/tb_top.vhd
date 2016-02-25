@@ -2,9 +2,9 @@
 -- Company: 
 -- Engineer:
 --
--- Create Date:   15:33:27 02/24/2016
+-- Create Date:   00:22:43 02/25/2016
 -- Design Name:   
--- Module Name:   C:/Users/Arthur/Documents/GitHub/fpga-bits/mandelbrot_monochromatic/test_top.vhd
+-- Module Name:   C:/Users/Arthur/Documents/GitHub/fpga-bits/mandelbrot_monochromatic/tb_top.vhd
 -- Project Name:  mandelbrot_monochromatic
 -- Target Device:  
 -- Tool versions:  
@@ -32,10 +32,10 @@ USE ieee.std_logic_1164.ALL;
 -- arithmetic functions with Signed or Unsigned values
 --USE ieee.numeric_std.ALL;
  
-ENTITY test_top IS
-END test_top;
+ENTITY tb_top IS
+END tb_top;
  
-ARCHITECTURE behavior OF test_top IS 
+ARCHITECTURE behavior OF tb_top IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
  
@@ -43,6 +43,10 @@ ARCHITECTURE behavior OF test_top IS
     PORT(
          CLK : IN  std_logic;
          SW : IN  std_logic_vector(7 downto 0);
+         DIR_UP : IN  std_logic;
+         DIR_DOWN : IN  std_logic;
+         DIR_LEFT : IN  std_logic;
+         DIR_RIGHT : IN  std_logic;
          VGA_RED : OUT  std_logic_vector(3 downto 0);
          VGA_GREEN : OUT  std_logic_vector(3 downto 0);
          VGA_BLUE : OUT  std_logic_vector(3 downto 0);
@@ -56,6 +60,10 @@ ARCHITECTURE behavior OF test_top IS
    --Inputs
    signal CLK : std_logic := '0';
    signal SW : std_logic_vector(7 downto 0) := (others => '0');
+   signal DIR_UP : std_logic := '0';
+   signal DIR_DOWN : std_logic := '0';
+   signal DIR_LEFT : std_logic := '0';
+   signal DIR_RIGHT : std_logic := '0';
 
  	--Outputs
    signal VGA_RED : std_logic_vector(3 downto 0);
@@ -74,6 +82,10 @@ BEGIN
    uut: mandel_mono PORT MAP (
           CLK => CLK,
           SW => SW,
+          DIR_UP => DIR_UP,
+          DIR_DOWN => DIR_DOWN,
+          DIR_LEFT => DIR_LEFT,
+          DIR_RIGHT => DIR_RIGHT,
           VGA_RED => VGA_RED,
           VGA_GREEN => VGA_GREEN,
           VGA_BLUE => VGA_BLUE,
