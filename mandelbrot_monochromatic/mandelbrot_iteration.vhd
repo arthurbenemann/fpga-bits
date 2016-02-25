@@ -9,13 +9,9 @@ entity mandelbrot_iteration is port(
 	clk : in  std_logic;
 	-- inputs
 	ov_in : in std_logic;
-	x : in std_logic_vector (17 downto 0);
-	y : in std_logic_vector (17 downto 0);
-	x0 : in std_logic_vector (17 downto 0);
-	y0 : in std_logic_vector (17 downto 0);
+	x,y,x0,y0 : in std_logic_vector (17 downto 0);
 	-- outputs
-	x_out : out std_logic_vector (17 downto 0);
-	y_out : out std_logic_vector (17 downto 0);
+	x_out,y_out : out std_logic_vector (17 downto 0);
 	ov : out std_logic);
 end mandelbrot_iteration;
 
@@ -23,12 +19,8 @@ architecture Behavioral of mandelbrot_iteration is
 
 	component multiplier	port (
 		clk: in std_logic;
-		ar: in std_logic_vector(17 downto 0);	-- Q+2.15
-		ai: in std_logic_vector(17 downto 0);
-		br: in std_logic_vector(17 downto 0);
-		bi: in std_logic_vector(17 downto 0);
-		pr: out std_logic_vector(21 downto 0); -- Q+6.15
-		pi: out std_logic_vector(21 downto 0)); 
+		ar,ai,br,bi: in std_logic_vector(17 downto 0);	-- Q+2.15
+		pr,pi: out std_logic_vector(21 downto 0)); -- Q+6.15
 	end component;
 	
 	signal px,py: std_logic_vector (21 downto 0); -- Q+6.15
@@ -44,12 +36,8 @@ begin
 	
 	mul1 : multiplier port map (	-- latency of 1 clock
 		clk => clk,
-		ar => x,	 
-		ai => y,
-		br => x,  
-		bi => y,
-		pr => px, 
-		pi => py
+		ar => x,	ai => y,	br => x, bi => y,
+		pr => px, pi => py
 	);
 	
 	constants_delay :process (clk) begin		-- The constants need to be delayed by one cycle to match the multiplier latency
