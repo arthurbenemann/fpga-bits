@@ -64,6 +64,13 @@ architecture Behavioral of mandel_mono is
 	end component;
 	
 	signal color : std_logic_vector(3 downto 0);
+	
+	component color_palette port ( 
+		clk : in std_logic;
+		color : in  STD_LOGIC_VECTOR (3 downto 0);
+		color_rgb : out  STD_LOGIC_VECTOR (11 downto 0));
+	end component;
+	
 	signal color_rgb : std_logic_vector(11 downto 0);
 	
 	component vga800x600 port( 
@@ -106,19 +113,11 @@ begin
 		color => color
 	);
 	
-
-	
-	--color_rgb <= color & color & color; -- monochromatic mapping
-	
-	with color select color_rgb <= -- rgb palette
-		x"00f" when "1000",
-		x"0f0" when "1100",
-		x"f00" when "1110",
-		x"fff" when "1111",
-		x"000" when others;
-
-
-		
+	color_mapping : color_palette port map(
+		clk => CLK_80,
+		color => color, color_rgb => color_rgb
+	);
+			
 	vga_port: vga800x600 port  map(
 		clk => CLK_40,	
 		-- input
@@ -129,6 +128,7 @@ begin
 		red => VGA_RED, green => VGA_GREEN, blue => VGA_BLUE,
 		vsync => vsync, hsync => hsync
 	);
+	
 	VGA_VSYNC <= vsync;
 	VGA_HSYNC <= hsync;
 
