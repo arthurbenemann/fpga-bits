@@ -12,7 +12,7 @@ entity mandelbrot_iteration is port(
 	ov_in : in std_logic;
 	x,y,x0,y0 : in std_logic_vector (17 downto 0);
 	-- outputs
-	x_out,y_out : out std_logic_vector (17 downto 0);
+	x_out,y_out,x0_out,y0_out : out std_logic_vector (17 downto 0);
 	ov : out std_logic);
 end mandelbrot_iteration;
 
@@ -31,8 +31,8 @@ architecture Behavioral of mandelbrot_iteration is
 	constant escape : signed (18 downto 0) := to_signed(+2*(2**15),19);  -- Q+3.15
 	
 	-- pipeline signals
-	signal x_1,x0_1,x0_2,x0_3,x0_4,x0_5,x0_6 :std_logic_vector(17 downto 0):=(others =>'0');
-	signal y_1,y0_1,y0_2,y0_3,y0_4,y0_5,y0_6 :std_logic_vector(17 downto 0):=(others =>'0');
+	signal x_1,x0_1,x0_2,x0_3,x0_4,x0_5,x0_6,x0_7 :std_logic_vector(17 downto 0):=(others =>'0');
+	signal y_1,y0_1,y0_2,y0_3,y0_4,y0_5,y0_6,y0_7 :std_logic_vector(17 downto 0):=(others =>'0');
 	signal ov_in_1,ov_in_2,ov_in_3,ov_in_4,ov_in_5,ov_in_6,ov_in_7 : std_logic :='0';
 	signal sumx_6,sumy_6 : signed (18 downto 0):=(others =>'0'); -- Q+3.15		
 	
@@ -73,10 +73,12 @@ begin
 			sumx_6 <= signed(px(18 downto 0)) + signed(x0_6(17) & x0_6); -- extended x0 to Q+3.15
 			sumy_6 <= signed(py(18 downto 0)) + signed(y0_6(17) & y0_6);
 			-- cycle 7 - overflow check / output
+			x0_7<= x0_6;	y0_7 <= y0_6;	
 			ov_in_7 <= ov_in_6;	
+			x0_out<= x0_7;y0_out<= y0_7;
 			x_out <= std_logic_vector(sumx_6(17 downto 0)); -- constrain to Q+2.15
 			y_out <= std_logic_vector(sumy_6(17 downto 0));			
-			ov <= ov_x or ov_y or ov_in_7;			
+			ov <= ov_x or ov_y or ov_in_7;
 		end if;
 	end process;
 	
