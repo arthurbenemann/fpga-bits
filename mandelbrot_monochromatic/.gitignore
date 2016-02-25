@@ -122,6 +122,10 @@ fuseRelaunch.cmd
 *.projectmgr
 xil_1.*
 
+#planahead
+planAhead*/
+planAhead*
+
 # generated folders
 iseconfig/
 xlnx_auto_0_xdb/
