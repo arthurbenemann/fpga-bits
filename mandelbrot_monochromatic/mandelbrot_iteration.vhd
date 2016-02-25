@@ -1,6 +1,14 @@
+--
+-- Iteration of one run of the mandelbrot function
+--
+-- * data is stored in Q+2.15 (as the spartan 6 DSP blocks can do 18x18 multiplication)
+-- * latency of 7 cycles
+--
+-- The pseudo-code for each iteration is:
+-- 	xout = x*x - y*y + x0
+--		yout = 2*x*y + y0
+-- 	overflow = x*x + y*y > 2*2  
 
--- Data is stored in Q+2.15 as the spartan 6 DSP blocks can do 18x18 multiplication
--- This design has a latency of 7 cycles
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;

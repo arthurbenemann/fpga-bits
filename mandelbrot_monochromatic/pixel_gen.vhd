@@ -1,19 +1,3 @@
---
--- Monochromatic Mandelbrot set on VGA interface
---
--- This project is trying to generate a mandelbrot set without using external memmory. There
--- are two ways in which this might be viable:
--- * VGA with 400*300*4bit = 480 kb monochromatic interface which would fit in the 576 kb of internal RAM
--- * Reduce the number of iterations to generate the pixels in real time
---
--- The pseudo-code for each iteration is:
--- 	xout = x*x - y*y + x0
---		yout = 2*x*y + y0
--- 	overflow = x*x + y*y > 2*2  
---
--- Data is stored in Q+2.15 as the spartan 6 DSP blocks can do 18x18 multiplication
-
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
