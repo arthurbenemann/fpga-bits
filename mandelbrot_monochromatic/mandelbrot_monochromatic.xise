@@ -23,7 +23,7 @@
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
     </file>
     <file xil_pn:name="pixel_gen.vhd" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="0"/>
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="4"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="5"/>
     </file>
     <file xil_pn:name="mandel_mono.vhd" xil_pn:type="FILE_VHDL">
@@ -31,7 +31,7 @@
       <association xil_pn:name="Implementation" xil_pn:seqID="7"/>
     </file>
     <file xil_pn:name="mandelbrot_iteration.vhd" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="2"/>
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="3"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="3"/>
     </file>
     <file xil_pn:name="ipcore_dir/clock_manager.xco" xil_pn:type="FILE_COREGEN">
@@ -43,13 +43,13 @@
       <association xil_pn:name="Implementation" xil_pn:seqID="4"/>
     </file>
     <file xil_pn:name="tb_iteration.vhd" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="3"/>
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="0"/>
       <association xil_pn:name="PostMapSimulation" xil_pn:seqID="20"/>
       <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="20"/>
       <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="20"/>
     </file>
     <file xil_pn:name="pixel_scaling.vhd" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="0"/>
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="2"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="2"/>
     </file>
     <file xil_pn:name="tb_scaler.vhd" xil_pn:type="FILE_VHDL">
@@ -63,6 +63,12 @@
       <association xil_pn:name="PostMapSimulation" xil_pn:seqID="89"/>
       <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="89"/>
       <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="89"/>
+    </file>
+    <file xil_pn:name="tb_pixel_gen.vhd" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="5"/>
+      <association xil_pn:name="PostMapSimulation" xil_pn:seqID="100"/>
+      <association xil_pn:name="PostRouteSimulation" xil_pn:seqID="100"/>
+      <association xil_pn:name="PostTranslateSimulation" xil_pn:seqID="100"/>
     </file>
     <file xil_pn:name="ipcore_dir/multiplier.xise" xil_pn:type="FILE_COREGENISE">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
@@ -383,7 +389,7 @@
     <!--                                                                                  -->
     <!-- The following properties are for internal use only. These should not be modified.-->
     <!--                                                                                  -->
-    <property xil_pn:name="PROP_BehavioralSimTop" xil_pn:value="Architecture|tb_iteration|behavior" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="PROP_BehavioralSimTop" xil_pn:value="Architecture|tb_pixel_gen|behavior" xil_pn:valueState="non-default"/>
     <property xil_pn:name="PROP_DesignName" xil_pn:value="mandelbrot_monochromatic" xil_pn:valueState="non-default"/>
     <property xil_pn:name="PROP_DevFamilyPMName" xil_pn:value="spartan6" xil_pn:valueState="default"/>
     <property xil_pn:name="PROP_FPGAConfiguration" xil_pn:value="FPGAConfiguration" xil_pn:valueState="default"/>

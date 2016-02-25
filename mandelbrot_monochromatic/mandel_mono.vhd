@@ -83,8 +83,17 @@ begin
 		color => color
 	);
 	
-	color_rgb <= color & color & color; -- monochromatic mapping
+	--color_rgb <= color & color & color; -- monochromatic mapping
 	
+	with color select color_rgb <= -- rgb palette
+		x"00f" when "1000",
+		x"0f0" when "1100",
+		x"f00" when "1110",
+		x"fff" when "1111",
+		x"000" when others;
+
+
+		
 	vga_port: vga800x600 port  map(
 		clk => CLK_40,	
 		-- input
