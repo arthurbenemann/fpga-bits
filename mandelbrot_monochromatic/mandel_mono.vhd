@@ -20,10 +20,10 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity mandel_mono is port ( 
 	CLK : in  std_logic;
-	SW : in std_logic_vector(7 downto 0);	
 	DIR_UP,DIR_DOWN,DIR_LEFT,DIR_RIGHT : in  std_logic;
 	VGA_RED,VGA_GREEN,VGA_BLUE : out STD_LOGIC_VECTOR(3 downto 0);
 	VGA_VSYNC,VGA_HSYNC : out STD_LOGIC;
+	SW : in std_logic_vector(7 downto 0);	
 	LED : out std_logic_vector(7 downto 0));
 end mandel_mono;
 
@@ -37,6 +37,13 @@ architecture Behavioral of mandel_mono is
 	signal CLK_80, CLK_40 : std_logic;
 	
 	
+	component user_interface port(
+		clk,DIR_UP,DIR_DOWN,DIR_LEFT,DIR_RIGHT : in  std_logic;
+		x_offset,y_offset : out std_logic_vector(8 downto 0));         
+	end component;
+	
+	signal x_offset,y_offset : std_logic_vector(8 downto 0); 
+	
 	component pixel_scaling port(
 		x_pixel : in  std_logic_vector (10 downto 0);
 		y_pixel : in  std_logic_vector (9 downto 0);
@@ -46,7 +53,6 @@ architecture Behavioral of mandel_mono is
 	
 	signal x_pixel : std_logic_vector(10 downto 0);
 	signal y_pixel : std_logic_vector(9 downto 0);
-	signal x_offset,y_offset : std_logic_vector(8 downto 0) :=(others=>'0'); 
 	signal x0,y0 : std_logic_vector (17 downto 0);
 
 
@@ -80,23 +86,12 @@ begin
 		CLK_40 => CLK_40
 	);
 	
-	panning : process (vsync) begin
-		if rising_edge(vsync) then
-			if DIR_LEFT = '1' then
-				x_offset <= x_offset + 1;
-			end if;
-			if DIR_RIGHT = '1' then
-				x_offset <= x_offset - 1;
-			end if;
-			if DIR_UP = '1' then
-				y_offset <= y_offset + 1;
-			end if;
-			if DIR_DOWN = '1' then
-				y_offset <= y_offset - 1;
-			end if;
-		end if;
-	end process;	
 	
+	interface : user_interface PORT MAP(
+		CLK_40, DIR_UP=>DIR_UP,DIR_DOWN=>DIR_DOWN,DIR_LEFT=>DIR_LEFT,DIR_RIGHT=>DIR_RIGHT,
+		x_offset => x_offset, y_offset => y_offset
+	);
+
 	scaler : pixel_scaling port map(
 		x_pixel => x_pixel, y_pixel => y_pixel,
 		x_offset => x_offset, y_offset => y_offset,
