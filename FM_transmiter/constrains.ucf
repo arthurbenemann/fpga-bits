@@ -28,6 +28,12 @@ NET SW(6)            LOC="P59"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;       
 NET SW(7)            LOC="P57"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # C12
 
 
+NET DIR_RIGHT      LOC="P131" | IOSTANDARD=LVTTL;                                # A10
+NET DIR_UP         LOC="P132" | IOSTANDARD=LVTTL;                                # A11
+NET DIR_DOWN       LOC="P133" | IOSTANDARD=LVTTL;                                # A12
+NET DIR_LEFT       LOC="P134" | IOSTANDARD=LVTTL;                                # A13
+
+
 # VGA
 NET VGA_RED(0)     LOC="P98"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # D0
 NET VGA_RED(1)     LOC="P95"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST;          # D1

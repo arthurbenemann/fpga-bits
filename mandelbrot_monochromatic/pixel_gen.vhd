@@ -20,8 +20,7 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity pixel_gen is port ( 
 	clk : in  std_logic;
-	x_pixel : in std_logic_vector(10 downto 0);
-	y_pixel : in std_logic_vector(9 downto 0);
+	x0,y0 : in std_logic_vector(17 downto 0);
 	color : out std_logic_vector(3 downto 0));
 end pixel_gen;
 
@@ -29,40 +28,18 @@ architecture Behavioral of pixel_gen is
 
 	component mandelbrot_iteration port(
 		clk : IN  std_logic;
-		ov_in : in std_logic;
-		x : IN std_logic_vector(17 downto 0);
-		y : IN std_logic_vector(17 downto 0);
-		x0 : IN std_logic_vector(17 downto 0);
-		y0 : IN std_logic_vector(17 downto 0);          
-		x_out : OUT std_logic_vector(17 downto 0);
-		y_out : OUT std_logic_vector(17 downto 0);
+		ov_in : in std_logic; 
+		x,y,x0,y0 : IN std_logic_vector(17 downto 0);   
+		x_out,y_out : OUT std_logic_vector(17 downto 0);
 		ov : OUT std_logic);
 	end component;
-
-	
-	component pixel_scaling port(
-		x_pixel : in  std_logic_vector (10 downto 0);
-		y_pixel : in  std_logic_vector (9 downto 0);
-		x0 : out  std_logic_vector (17 downto 0);
-		y0 : out  std_logic_vector (17 downto 0));
-	end component;
 		
-	signal x0 : std_logic_vector (17 downto 0); -- Q+2.15
-	signal y0 : std_logic_vector (17 downto 0);
-	
 	signal x1,x2,x3 : std_logic_vector (17 downto 0);
 	signal y1,y2,y3 : std_logic_vector (17 downto 0);
 	signal o1,o2,o3,o4 : std_logic;
 	
 begin
 	
-	scaler : pixel_scaling port map(
-		x_pixel => x_pixel,
-		y_pixel => y_pixel,
-		x0 => x0,
-		y0 => y0
-	);
-
 	iteration1 : mandelbrot_iteration port map(
 		clk => clk,
 		ov_in => '0',
