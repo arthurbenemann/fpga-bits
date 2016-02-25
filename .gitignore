@@ -1,4 +1,5 @@
 # intermediate build files
+*.xdl
 *.bgn
 *.bit
 *.bld
