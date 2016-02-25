@@ -12,6 +12,7 @@ architecture Behavioral of user_interface is
 
 	signal x,y : signed(8 downto 0) :=(others=>'0'); 
 
+	signal counter : unsigned(17 downto 0) := to_unsigned(0,18);
 begin
 
 	x_offset <= std_logic_vector(x);
@@ -19,17 +20,20 @@ begin
 	
 	panning : process (clk) begin
 		if rising_edge(clk) then
-			if DIR_LEFT = '1' then
-				x <= x + 1;
-			end if;
-			if DIR_RIGHT = '1' then
-				x <= x - 1;
-			end if;
-			if DIR_UP = '1' then
-				y <= y + 1;
-			end if;
-			if DIR_DOWN = '1' then
-				y <= y - 1;
+			counter <= counter +1;
+			if counter = 0 then
+				if DIR_LEFT = '1' then
+					x <= x + 1;
+				end if;
+				if DIR_RIGHT = '1' then
+					x <= x - 1;
+				end if;
+				if DIR_UP = '1' then
+					y <= y + 1;
+				end if;
+				if DIR_DOWN = '1' then
+					y <= y - 1;
+				end if;
 			end if;
 		end if;
 	end process;	
