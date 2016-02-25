@@ -44,7 +44,8 @@ architecture Behavioral of mandel_mono is
 	
 	signal x_offset,y_offset : std_logic_vector(8 downto 0); 
 	
-	component pixel_scaling port(
+	component pixel_scaling port( 
+		clk : in  std_logic;
 		x_pixel : in  std_logic_vector (10 downto 0);
 		y_pixel : in  std_logic_vector (9 downto 0);
 		x_offset,y_offset : in std_logic_vector(8 downto 0); 
@@ -93,6 +94,7 @@ begin
 	);
 
 	scaler : pixel_scaling port map(
+		clk => CLK_80,
 		x_pixel => x_pixel, y_pixel => y_pixel,
 		x_offset => x_offset, y_offset => y_offset,
 		x0 => x0, y0 => y0
