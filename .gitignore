@@ -43,7 +43,7 @@
 *_summary.xml
 *_usage.xml
 *_xst.xrpt
-
+*.psr
 
 # iMPACT generated files
 _impactbatch.log
@@ -78,6 +78,10 @@ coregen*/**/*.pdf
 /ipcore_dir/**/example_design
 /ipcore_dir/tmp/*
 
+# smartxplorer files
+*.sx.debug
+smartxplorer_results/
+hostlistfile.txt
 
 # project-wide generated files
 *.gise
