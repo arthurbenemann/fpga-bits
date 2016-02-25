@@ -25,6 +25,16 @@ architecture Behavioral of vga800x600 is
 	signal hcount : std_logic_vector(10 downto 0) := (others =>'0');
 	signal vcount : std_logic_vector(9 downto 0) := (others =>'0');
 	
+	-- SVGA timing 800x600@60Hz pixel freq 40Mhz - http://tinyvga.com/vga-timing/800x600@60Hz
+	constant h_visible	: integer := 800;
+	constant h_front 		: integer := 40;
+	constant h_sync 		: integer := 128;
+	constant h_total		: integer := 1056;
+	constant v_visible	: integer := 600;
+	constant v_front 		: integer := 1;
+	constant v_sync 		: integer := 4;
+	constant v_total		: integer := 628;	
+	
 begin
 	h <= hcount;
 	v <= vcount;
@@ -32,9 +42,9 @@ begin
 	counters : process(clk) begin
 		if rising_edge(clk) then
 			-- Counters
-			if hcount = 1055 then
+			if hcount = (h_total-1) then
 				hcount <= (others =>'0');
-				if vcount = 627 then
+				if vcount = (v_total-1) then
 					vcount <= (others =>'0');
 				else
 					vcount <= vcount + 1;
@@ -44,21 +54,21 @@ begin
 			end if;
 			
 			-- Hsync
-			if hcount >= (800+40) and hcount < (800+40+128) then
+			if hcount >= (h_visible+h_front) and hcount < (h_visible+h_front+h_sync) then
 				hsync <= '0';
 			else
 				hsync <= '1';
 			end if;			
 			
 			-- Vsync
-			if vcount >= (600+1) and vcount < (600+1+4) then
+			if vcount >= (v_visible+v_front) and vcount < (v_visible+v_front+v_sync) then
 				vsync <= '0';
 			else
 				vsync <= '1';
 			end if;
 			
 			-- Colors
-			if hcount < 800 and vcount < 600 then
+			if hcount < h_visible and vcount < v_visible then
 				red   <= color(11 downto 8);
 				green <= color( 7 downto 4);
 				blue  <= color( 3 downto 0);
