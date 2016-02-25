@@ -15,7 +15,7 @@ architecture Behavioral of pixel_gen is
 		ov_in : in std_logic; 
 		x,y,x0,y0 : IN std_logic_vector(17 downto 0);   
 		x_out,y_out,x0_out,y0_out : OUT std_logic_vector(17 downto 0);
-		ov : std_logic_vector (3 downto 0));
+		ov : out std_logic_vector (3 downto 0));
 	end component;
 	
 	signal overflow : std_logic_vector (3 downto 0);
