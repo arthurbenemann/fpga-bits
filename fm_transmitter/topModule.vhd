@@ -50,8 +50,7 @@ architecture Behavioral of topModule is
 	
 	COMPONENT fm_modulator PORT(
 		clk : IN std_logic;
-		data_clk : IN std_logic;
-		data : IN std_logic_vector(8 downto 0);          
+		data : IN signed(8 downto 0);          
 		fm_out : OUT std_logic);
 	END COMPONENT;
 
@@ -87,9 +86,8 @@ begin
 	AUDIO1_RIGHT <= audio_out;
 
 	Inst_fm_modulator: fm_modulator PORT MAP(
-		clk => main_clk,
-		data_clk => main_clk,
-		data => douta,
+		clk => modulator_clk,
+		data => audio_data_signed,
 		fm_out => GPIO0
 	);
 
