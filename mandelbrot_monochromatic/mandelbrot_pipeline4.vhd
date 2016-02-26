@@ -35,7 +35,7 @@ begin
 	iteration1 : mandelbrot_iteration port map(
 		clk => clk,
 		ov_in => ov_in,
-		x => x0, y => y0, x0 => x0, y0 => y0,     -- inputs
+		x => x, y => y, x0 => x0, y0 => y0,     -- inputs
 		x_out => x1, y_out => y1, ov => o1,       -- outputs
 		x0_out=> x0_1, y0_out => y0_1
 	);
