@@ -44,7 +44,7 @@ ARCHITECTURE behavior OF tb_pixel_gen IS
          clk : IN  std_logic;
          x0 : IN  std_logic_vector(17 downto 0);
          y0 : IN  std_logic_vector(17 downto 0);
-         color : OUT  std_logic_vector(3 downto 0)
+         color : OUT  std_logic_vector(19 downto 0)
         );
     END COMPONENT;
     
@@ -55,7 +55,7 @@ ARCHITECTURE behavior OF tb_pixel_gen IS
    signal y0 : std_logic_vector(17 downto 0) := (others => '0');
 
  	--Outputs
-   signal color : std_logic_vector(3 downto 0);
+   signal color : std_logic_vector(19 downto 0);
 
    -- Clock period definitions
    constant clk_period : time := 5 ns;
@@ -90,11 +90,11 @@ BEGIN
 
       -- insert stimulus here 
 
-		x0<= std_logic_vector(to_signed(+1*(2**15),18));
-		y0<= std_logic_vector(to_signed(+1*(2**15),18));
+		x0<= std_logic_vector(to_signed(+2*(2**15),18));
+		y0<= std_logic_vector(to_signed(+2*(2**15),18));
 		
 		x0 <= std_logic_vector(to_signed(+1*(2**15),18));
-		y0 <= std_logic_vector(to_signed(+0*(2**15),18));
+		y0 <= std_logic_vector(to_signed(+2*(2**15),18));
       wait for clk_period*200;
 		
 		x0 <= std_logic_vector(to_signed(-1*(2**15),18));
