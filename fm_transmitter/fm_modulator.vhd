@@ -11,7 +11,7 @@ end fm_modulator;
 
 architecture Behavioral of fm_modulator is
 	
-	constant input_clk : real := 320.0; -- MHz
+	constant input_clk : real := 288.0; -- MHz
 	constant accumulator_size : real := 2**32.0;
 	constant fm_frequency : real := 94.7; -- MHz	
 	

@@ -13,13 +13,13 @@ architecture Behavioral of topModule is
 		
 	component pll port (
 	  CLK_IN1 : in     std_logic;
-	  clk_320 : out    std_logic;
+	  clk_288 : out    std_logic;
 	  clk_32 : out    std_logic
 	 );
 	end component;
 	
 	signal audio_clk : std_logic;
-	signal clk_320 : std_logic;
+	signal clk_288 : std_logic;
 	signal clk_32 : std_logic;
 	
 	COMPONENT counter PORT ( -- max count of 236646400
@@ -58,7 +58,7 @@ begin
 	
 	clock_manager : pll port map (
 		CLK_IN1 => CLK,
-		clk_320 => clk_320,
+		clk_288 => clk_288,
 		clk_32 => clk_32
 	);	
 	
@@ -86,7 +86,7 @@ begin
 
 	Inst_fm_modulator: fm_modulator PORT MAP(
 		clk => clk_32,
-		clk_modulator => clk_320,
+		clk_modulator => clk_288,
 		data => audio_data_signed,
 		fm_out => GPIO0
 	);
