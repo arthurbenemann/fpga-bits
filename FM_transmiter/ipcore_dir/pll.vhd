@@ -55,7 +55,7 @@
 -- "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
--- CLK_OUT1___256.000______0.000______50.0______278.125____150.000
+-- CLK_OUT1___320.000______0.000______50.0______262.500____150.000
 -- CLK_OUT2____32.000______0.000______50.0______200.000____150.000
 --
 ------------------------------------------------------------------------------
@@ -116,7 +116,7 @@ begin
   generic map
    (CLKDV_DIVIDE          => 2.000,
     CLKFX_DIVIDE          => 1,
-    CLKFX_MULTIPLY        => 8,
+    CLKFX_MULTIPLY        => 10,
     CLKIN_DIVIDE_BY_2     => FALSE,
     CLKIN_PERIOD          => 31.25,
     CLKOUT_PHASE_SHIFT    => "NONE",
