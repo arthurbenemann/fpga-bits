@@ -35,7 +35,8 @@ architecture Behavioral of topModule is
 		douta : OUT STD_LOGIC_VECTOR(8 DOWNTO 0));
 	END COMPONENT;
 	
-	signal audio_data_unsigned : STD_LOGIC_VECTOR(8 downto 0);
+	signal douta : STD_LOGIC_VECTOR(8 DOWNTO 0);
+	signal audio_data_unsigned : unsigned(8 downto 0);
 	signal audio_data_signed : signed(8 downto 0);
 	
 	COMPONENT audio_dac_8bit PORT(
@@ -71,10 +72,10 @@ begin
 	waveform_rom : rom_memory PORT MAP (
 		clka => main_clk,
 		addra => addr_counter(27 downto 12),
-		douta => audio_data_unsigned
+		douta => douta
 	);
-	
-	audio_data_signed <= signed(unsigned(audio_data_unsigned));
+	audio_data_unsigned <= unsigned(douta);
+	audio_data_signed <= signed(douta xor "100000000");
 
 	Inst_audio_dac_8bit: audio_dac_8bit PORT MAP(
 		clk => main_clk,
@@ -88,7 +89,7 @@ begin
 	Inst_fm_modulator: fm_modulator PORT MAP(
 		clk => main_clk,
 		data_clk => main_clk,
-		data => audio_data_unsigned,
+		data => douta,
 		fm_out => GPIO0
 	);
 
