@@ -12,13 +12,13 @@ architecture Behavioral of color_palette is
  signal color_buff : STD_LOGIC_VECTOR (11 downto 0) :=(others=>'0');
 begin
 
-	color_rgb <= color_buff; -- monochromatic mapping
---	with color_buff select color_rgb <= -- rgb palette
---		x"00f" when "1000",
---		x"0f0" when "1100",
---		x"f00" when "1110",
---		x"fff" when "1111",
---		x"000" when others;
+--	color_rgb <= color_buff; -- monochromatic mapping
+	with color_buff(3 downto 0) select color_rgb <= -- rgb palette
+		x"00f" when "1000",
+		x"0f0" when "1100",
+		x"f00" when "1110",
+		x"fff" when "1111",
+		x"000" when others;
 		
 	process (clk) begin
 		if rising_edge(clk) then
