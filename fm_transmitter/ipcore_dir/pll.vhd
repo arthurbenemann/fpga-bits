@@ -77,8 +77,8 @@ port
  (-- Clock in ports
   CLK_IN1           : in     std_logic;
   -- Clock out ports
-  modulator_clk          : out    std_logic;
-  main_clk          : out    std_logic
+  clk_320          : out    std_logic;
+  clk_32          : out    std_logic
  );
 end pll;
 
@@ -160,7 +160,7 @@ begin
 
   clkout1_buf : BUFG
   port map
-   (O   => modulator_clk,
+   (O   => clk_320,
     I   => clkfx);
 
 
@@ -170,6 +170,6 @@ begin
    (O   => clk_out2_internal,
     I   => clk0);
 
-  main_clk <= clk_out2_internal;
+  clk_32 <= clk_out2_internal;
 
 end xilinx;

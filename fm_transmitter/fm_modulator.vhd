@@ -3,10 +3,10 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use IEEE.MATH_REAL.ALL;
 
-entity fm_modulator is
-    Port ( clk : in  STD_LOGIC;
-           data : in  signed (8 downto 0);
-           fm_out : out  STD_LOGIC);
+entity fm_modulator is Port ( 
+	clk, clk_modulator : in  STD_LOGIC;
+   data : in  signed (8 downto 0);
+   fm_out : out  STD_LOGIC);
 end fm_modulator;
 
 architecture Behavioral of fm_modulator is
@@ -23,15 +23,20 @@ architecture Behavioral of fm_modulator is
 	signal phase_accumulator : signed (31 downto 0) := (others => '0');
 
 begin
-
-	fm_out <= std_logic(phase_accumulator(31));
-		
+	
 	process (clk) begin
 		if rising_edge(clk) then
 			phase_shift_data <= resize(data & "0000",32);
-			phase_shift <= center_freq + phase_shift_data;
+			phase_shift <= center_freq + phase_shift_data;				
+		end if;
+	end process;
+	
+	process (clk_modulator) begin
+		if rising_edge(clk_modulator) then
 			phase_accumulator <= phase_accumulator + phase_shift;						
 		end if;
 	end process;
+	
+	fm_out <= std_logic(phase_accumulator(31));
 
 end Behavioral;

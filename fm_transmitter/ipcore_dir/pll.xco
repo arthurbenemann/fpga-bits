@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Fri Feb 26 17:57:01 2016
+# Date: Fri Feb 26 21:50:16 2016
 #
 ##############################################################
 #
@@ -41,9 +41,9 @@ SELECT Clocking_Wizard xilinx.com:ip:clk_wiz:3.6
 # BEGIN Parameters
 CSET calc_done=DONE
 CSET clk_in_sel_port=CLK_IN_SEL
-CSET clk_out1_port=modulator_clk
+CSET clk_out1_port=clk_320
 CSET clk_out1_use_fine_ps_gui=false
-CSET clk_out2_port=main_clk
+CSET clk_out2_port=clk_32
 CSET clk_out2_use_fine_ps_gui=false
 CSET clk_out3_port=CLK_OUT3
 CSET clk_out3_use_fine_ps_gui=false
@@ -266,4 +266,4 @@ CSET use_status=false
 MISC pkg_timestamp=2012-05-10T12:44:55Z
 # END Extra information
 GENERATE
-# CRC: 898e1a2c
+# CRC: eaacffe5

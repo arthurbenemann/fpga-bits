@@ -13,14 +13,14 @@ architecture Behavioral of topModule is
 		
 	component pll port (
 	  CLK_IN1 : in     std_logic;
-	  modulator_clk : out    std_logic;
-	  main_clk : out    std_logic
+	  clk_320 : out    std_logic;
+	  clk_32 : out    std_logic
 	 );
 	end component;
 	
 	signal audio_clk : std_logic;
-	signal modulator_clk : std_logic;
-	signal main_clk : std_logic;
+	signal clk_320 : std_logic;
+	signal clk_32 : std_logic;
 	
 	COMPONENT counter PORT ( -- max count of 236646400
 		clk : IN STD_LOGIC;
@@ -49,7 +49,7 @@ architecture Behavioral of topModule is
 	signal audio_out : std_logic;
 	
 	COMPONENT fm_modulator PORT(
-		clk : IN std_logic;
+		clk, clk_modulator : IN std_logic;
 		data : IN signed(8 downto 0);          
 		fm_out : OUT std_logic);
 	END COMPONENT;
@@ -58,26 +58,25 @@ begin
 	
 	clock_manager : pll port map (
 		CLK_IN1 => CLK,
-		modulator_clk => modulator_clk,
-		main_clk => main_clk
+		clk_320 => clk_320,
+		clk_32 => clk_32
 	);	
 	
-	
 	addr_counter1 : counter PORT MAP (
-		clk => main_clk,
+		clk => clk_32,
 		q => addr_counter
 	);	
 
 	waveform_rom : rom_memory PORT MAP (
-		clka => main_clk,
+		clka => clk_32,
 		addra => addr_counter(27 downto 12),
 		douta => douta
 	);
-	audio_data_unsigned <= unsigned(douta);
+	
 	audio_data_signed <= signed(douta xor "100000000");
 
 	Inst_audio_dac_8bit: audio_dac_8bit PORT MAP(
-		clk => main_clk,
+		clk => clk_32,
 		data => audio_data_signed,
 		pulseStream => audio_out
 	);
@@ -86,7 +85,8 @@ begin
 	AUDIO1_RIGHT <= audio_out;
 
 	Inst_fm_modulator: fm_modulator PORT MAP(
-		clk => modulator_clk,
+		clk => clk_32,
+		clk_modulator => clk_320,
 		data => audio_data_signed,
 		fm_out => GPIO0
 	);
