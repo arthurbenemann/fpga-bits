@@ -35,7 +35,7 @@ architecture Behavioral of vga800x600 is
 	constant v_sync 		: integer := 4;
 	constant v_total		: integer := 628;	
 	
-	constant pipeline_delay : integer := 7;
+	constant pipeline_delay : integer := 12;
 	
 begin
 	h <= hcount;
