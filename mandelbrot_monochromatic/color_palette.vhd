@@ -3,16 +3,17 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 
-entity color_palette is Port ( 
+entity color_generator is Port ( 
 	clk : in std_logic;
-	color : in  STD_LOGIC_VECTOR (19 downto 0);
+	overflow_bits : in  STD_LOGIC_VECTOR (19 downto 0);
    color_rgb : out  STD_LOGIC_VECTOR (11 downto 0));
-end color_palette;
+end color_generator;
 
 
-architecture Behavioral of color_palette is
- signal color_buff : unsigned (1 downto 0) :=(others=>'0');
- signal temp : natural := 0;
+architecture Behavioral of color_generator is
+ signal count : unsigned (3 downto 0) :=(others=>'0');
+ signal overflow_bits_buffer : STD_LOGIC_VECTOR (19 downto 0);
+ signal color_rgb_buffer,douta : STD_LOGIC_VECTOR (11 downto 0);
  
 	function count_ones(s : std_logic_vector) return integer is
 	  variable temp : natural := 0;
@@ -23,20 +24,32 @@ architecture Behavioral of color_palette is
 	  end loop;
 	  return temp;
 	end function count_ones;
+	
+	
+	COMPONENT color_palette PORT (
+		 clka : IN STD_LOGIC;
+		 addra : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+		 douta : OUT STD_LOGIC_VECTOR(11 DOWNTO 0)
+	  );
+	END COMPONENT;
 
 begin
+	
+	color_rgb <= color_rgb_buffer;
 
---	color_rgb <= color_buff; -- monochromatic mapping
-	with color_buff select color_rgb <= -- rgb palette
-		x"00f" when "00",
-		x"0f0" when "01",
-		x"f00" when "10",
-		x"fff" when "11",
-		x"000" when others;
-		
+
+	rom: color_palette PORT MAP (
+		clka => clk,
+		addra => std_logic_vector(count),
+		douta =>  douta
+	 );
+
+			
 	process (clk) begin
 		if rising_edge(clk) then
-			color_buff <= to_unsigned(count_ones(color),2);
+			overflow_bits_buffer <= overflow_bits;
+			count <= to_unsigned(count_ones(overflow_bits_buffer),4);
+			color_rgb_buffer <= douta; 
 		end if;
 	end process;	
 

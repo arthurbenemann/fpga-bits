@@ -60,14 +60,14 @@ architecture Behavioral of mandel_mono is
 	component pixel_gen port ( 
 		clk : in  std_logic;
 		x0,y0 : in std_logic_vector(17 downto 0);
-		color : out std_logic_vector(19 downto 0));
+		overflow_bits : out std_logic_vector(19 downto 0));
 	end component;
 	
-	signal color : std_logic_vector(19 downto 0);
+	signal overflow_bits : std_logic_vector(19 downto 0);
 	
-	component color_palette port ( 
+	component color_generator port ( 
 		clk : in std_logic;
-		color : in  STD_LOGIC_VECTOR (19 downto 0);
+		overflow_bits : in  STD_LOGIC_VECTOR (19 downto 0);
 		color_rgb : out  STD_LOGIC_VECTOR (11 downto 0));
 	end component;
 	
@@ -110,12 +110,12 @@ begin
 	pixel : pixel_gen port map(
 		clk => CLK_80,
 		x0 => x0, y0 => y0,
-		color => color
+		overflow_bits => overflow_bits
 	);
 	
-	color_mapping : color_palette port map(
-		clk => CLK_80,
-		color => color, color_rgb => color_rgb
+	color_mapping : color_generator port map(
+		clk => CLK_40,
+		overflow_bits => overflow_bits, color_rgb => color_rgb
 	);
 			
 	vga_port: vga800x600 port  map(

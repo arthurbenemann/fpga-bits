@@ -5,7 +5,7 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 entity pixel_gen is port ( 
 	clk : in  std_logic;
 	x0,y0 : in std_logic_vector(17 downto 0);
-	color : out std_logic_vector(19 downto 0));
+	overflow_bits : out std_logic_vector(19 downto 0));
 end pixel_gen;
 
 architecture Behavioral of pixel_gen is
@@ -37,7 +37,7 @@ architecture Behavioral of pixel_gen is
 	
 begin
 
-	color <= not (overflow);
+	overflow_bits <= overflow;
 
 	pipeline : mandelbrot_pipeline4 port map(
 		clk => clk,
