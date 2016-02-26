@@ -1,3 +1,0 @@
-Latency    : 1
-Fb_Latency : 0
-
