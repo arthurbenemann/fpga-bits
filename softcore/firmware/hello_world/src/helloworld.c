@@ -54,7 +54,11 @@ int main()
 {
     init_platform();
 
-    print("Hello World\n\r");
+    for(;;){
+    	int i;
+    	for (i=0; i<250000;++i);
+    	print("Hello World\n\r");
+    }
 
     cleanup_platform();
     return 0;
