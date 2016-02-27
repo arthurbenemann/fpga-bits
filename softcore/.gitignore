@@ -141,3 +141,82 @@ isim.cmd
 isim.log
 *isim_beh.exe
 *envsettings.html
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+#Xilinx ISE files
+UROP
+
+#Xilinx EDK files
+blockkdiagram/
+synthesis/
+project/base_systems/ml505/blockdiagram/*
+#project/base_systems/ml505/implementation/*
+
+project/base_systems/ml506/implementation/*
+project/base_systems/ml506/blockdiagram/*
+__xps
+*.log
+*.svf
+*.scr
+*.cmd
+*.bak
+*.elf
+#*.ace
+*.bsb
+*.make
+XpsGuiSessionLock
+*.opt
+*.ut
+*.filters
+*.gui
+*.xrpt
+*.ngc
+*.xpi
+*.bld
+*.map
+*.blc
+*.drc
+*.bmm
+*.mrp
+*.ncd
+*.pcf
+*.par
+*.pad
+*.bgn
+*.flw
+*.twr
+*.twx
+*.unroutes
+*.ncf
+*.ngm
+*.ptwx
+*.xwbt
+*.ngd
+*.edn
+*.ngo
+_xmsgs
+cache
+revup/
+#bak files
+*.bak
+
+#examples directory
+examples/
+
+#swp files
+*.swp
+
+#XPS files
+base_systems/ml505/__xps/
