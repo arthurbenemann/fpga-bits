@@ -4,9 +4,9 @@ use ieee.numeric_std.all;
 
 entity topModule is Port ( 
 	CLK : in STD_LOGIC;
-	--SW : in std_logic_vector(7 downto 0);
-	--LED : out std_logic_vector(7 downto 0);
-	GPIO0,AUDIO1_RIGHT,AUDIO1_LEFT : out  STD_LOGIC);
+	GPIO0,AUDIO1_RIGHT,AUDIO1_LEFT : out  STD_LOGIC;
+   SEVENSEG_SEG : out std_logic_vector(7 downto 0);
+   SEVENSEG_AN : out std_logic_vector(4 downto 0));
 end topModule;
 
 architecture Behavioral of topModule is
@@ -53,6 +53,21 @@ architecture Behavioral of topModule is
 		data : IN signed(8 downto 0);          
 		fm_out : OUT std_logic);
 	END COMPONENT;
+	
+	COMPONENT ms_timer PORT(
+		clk : IN std_logic;
+		clk_1ms : OUT std_logic);
+	END COMPONENT;
+	
+	signal clk_1ms : std_logic;
+	
+	COMPONENT seven_seg PORT(
+		display_hex : IN std_logic_vector(15 downto 0);
+		clk : IN std_logic;
+		double_dot : IN std_logic;
+		anodes : OUT std_logic_vector(4 downto 0);
+		sevenseg : OUT std_logic_vector(7 downto 0));
+	END COMPONENT;
 
 begin
 	
@@ -89,6 +104,19 @@ begin
 		clk_modulator => clk_modulator,
 		data => audio_data_signed,
 		fm_out => GPIO0
+	);
+	
+	Inst_ms_timer: ms_timer PORT MAP(
+		clk =>  clk_32,
+		clk_1ms =>  clk_1ms
+	);
+	
+	Inst_seven_seg: seven_seg PORT MAP(
+		display_hex => x"f947",
+		clk => clk_1ms,
+		double_dot => '0',
+		anodes => SEVENSEG_AN,
+		sevenseg => SEVENSEG_SEG
 	);
 
 end Behavioral;
