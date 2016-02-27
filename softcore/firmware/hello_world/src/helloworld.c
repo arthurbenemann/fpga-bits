@@ -46,17 +46,39 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "platform.h"
 
 void print(char *str);
 
 int main()
 {
-    init_platform();
+	init_platform();
+
+	//Instantiate IOs
+	XIOModule gpi;
+	XIOModule gpo;
+
+	//Initialize IOs
+	XIOModule_Initialize(&gpi, XPAR_IOMODULE_0_DEVICE_ID);
+	XIOModule_Start(&gpi);
+	XIOModule_Initialize(&gpo, XPAR_IOMODULE_0_DEVICE_ID);
+	XIOModule_Start(&gpo);
+
+    bool led = false;
 
     for(;;){
     	int i;
     	for (i=0; i<250000;++i);
+
+        if (led)
+                XIOModule_DiscreteWrite(&gpo, 1, 0xff);//Turn on bit 7 of GPO1
+        else
+                XIOModule_DiscreteWrite(&gpo, 1, 0); //Turn off all of GPO1
+
+        //Toggle the LED state
+        led = !led;
+
     	print("Hello World\n\r");
     }
 
