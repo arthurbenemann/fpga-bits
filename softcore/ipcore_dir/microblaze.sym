@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<symbol version="7" name="microblaze">
+    <symboltype>BLOCK</symboltype>
+    <timestamp>2016-2-27T2:20:26</timestamp>
+    <pin polarity="Input" x="0" y="80" name="clk" />
+    <pin polarity="Input" x="0" y="112" name="reset" />
+    <pin polarity="Output" x="768" y="80" name="uart_tx" />
+    <pin polarity="Input" x="0" y="144" name="uart_rx" />
+    <graph>
+        <text style="fontsize:40;fontname:Arial" x="32" y="32">microblaze</text>
+        <rect width="704" x="32" y="32" height="1696" />
+        <line x2="32" y1="80" y2="80" x1="0" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="36" y="80" type="pin clk" />
+        <line x2="32" y1="112" y2="112" x1="0" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="36" y="112" type="pin reset" />
+        <line x2="736" y1="80" y2="80" x1="768" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="732" y="80" type="pin uart_tx" />
+        <line x2="32" y1="144" y2="144" x1="0" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="36" y="144" type="pin uart_rx" />
+    </graph>
+</symbol>
