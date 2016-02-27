@@ -44,6 +44,7 @@ ENTITY phase_adder IS
   PORT (
     a : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
     b : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+    clk : IN STD_LOGIC;
     s : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
   );
 END phase_adder;
@@ -54,6 +55,7 @@ COMPONENT wrapped_phase_adder
   PORT (
     a : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
     b : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+    clk : IN STD_LOGIC;
     s : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
   );
 END COMPONENT;
@@ -81,7 +83,7 @@ END COMPONENT;
       c_has_sinit => 0,
       c_has_sset => 0,
       c_implementation => 0,
-      c_latency => 0,
+      c_latency => 1,
       c_out_width => 32,
       c_sclr_overrides_sset => 1,
       c_sinit_val => "0",
@@ -95,6 +97,7 @@ U0 : wrapped_phase_adder
   PORT MAP (
     a => a,
     b => b,
+    clk => clk,
     s => s
   );
 -- synthesis translate_on

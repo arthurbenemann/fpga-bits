@@ -55,7 +55,7 @@
 -- "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
--- CLK_OUT1___288.000______0.000______50.0______269.444____150.000
+-- CLK_OUT1___256.000______0.000______50.0______278.125____150.000
 -- CLK_OUT2____32.000______0.000______50.0______200.000____150.000
 --
 ------------------------------------------------------------------------------
@@ -77,7 +77,7 @@ port
  (-- Clock in ports
   CLK_IN1           : in     std_logic;
   -- Clock out ports
-  clk_288          : out    std_logic;
+  clk_modulator          : out    std_logic;
   clk_32          : out    std_logic
  );
 end pll;
@@ -116,7 +116,7 @@ begin
   generic map
    (CLKDV_DIVIDE          => 2.000,
     CLKFX_DIVIDE          => 1,
-    CLKFX_MULTIPLY        => 9,
+    CLKFX_MULTIPLY        => 8,
     CLKIN_DIVIDE_BY_2     => FALSE,
     CLKIN_PERIOD          => 31.25,
     CLKOUT_PHASE_SHIFT    => "NONE",
@@ -160,7 +160,7 @@ begin
 
   clkout1_buf : BUFG
   port map
-   (O   => clk_288,
+   (O   => clk_modulator,
     I   => clkfx);
 
 

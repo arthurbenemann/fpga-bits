@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Fri Feb 26 22:31:53 2016
+# Date: Fri Feb 26 23:19:54 2016
 #
 ##############################################################
 #
@@ -56,7 +56,7 @@ CSET c_out=false
 CSET ce=false
 CSET component_name=phase_adder
 CSET implementation=Fabric
-CSET latency=0
+CSET latency=1
 CSET latency_configuration=Manual
 CSET out_width=32
 CSET sclr=false
@@ -70,4 +70,4 @@ CSET sync_ctrl_priority=Reset_Overrides_Set
 MISC pkg_timestamp=2013-07-22T10:35:41Z
 # END Extra information
 GENERATE
-# CRC: e6e023dd
+# CRC: c13067e1
