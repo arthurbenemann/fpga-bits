@@ -1,5 +1,0 @@
-BRAMs: 0
-mults: 0
-LUTs : 12
-FFs  : 10
-
