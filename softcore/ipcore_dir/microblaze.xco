@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Sat Feb 27 02:16:29 2016
+# Date: Sat Feb 27 03:07:44 2016
 #
 ##############################################################
 #
@@ -51,7 +51,7 @@ CSET fit4_interrupt=false
 CSET fit4_no_clocks=6216
 CSET freq=32.0
 CSET gpi1_interrupt=None
-CSET gpi1_size=32
+CSET gpi1_size=8
 CSET gpi2_interrupt=None
 CSET gpi2_size=32
 CSET gpi3_interrupt=None
@@ -59,7 +59,7 @@ CSET gpi3_size=32
 CSET gpi4_interrupt=None
 CSET gpi4_size=32
 CSET gpo1_init=0x00000000
-CSET gpo1_size=32
+CSET gpo1_size=8
 CSET gpo2_init=0x00000000
 CSET gpo2_size=32
 CSET gpo3_init=0x00000000
@@ -71,7 +71,7 @@ CSET intc_level_edge=0x0000
 CSET intc_positive=0xFFFF
 CSET intc_use_ext_intr=false
 CSET jtag_chain=USER2
-CSET memsize=8KB
+CSET memsize=16KB
 CSET microblaze_instance=microblaze_mcs_v1_4
 CSET path=core0
 CSET pit1_interrupt=false
@@ -103,11 +103,11 @@ CSET use_fit1=false
 CSET use_fit2=false
 CSET use_fit3=false
 CSET use_fit4=false
-CSET use_gpi1=false
+CSET use_gpi1=true
 CSET use_gpi2=false
 CSET use_gpi3=false
 CSET use_gpi4=false
-CSET use_gpo1=false
+CSET use_gpo1=true
 CSET use_gpo2=false
 CSET use_gpo3=false
 CSET use_gpo4=false
@@ -123,4 +123,4 @@ CSET use_uart_tx=true
 MISC pkg_timestamp=2012-11-21T08:11:43Z
 # END Extra information
 GENERATE
-# CRC: 74ee0141
+# CRC: e81cc076
