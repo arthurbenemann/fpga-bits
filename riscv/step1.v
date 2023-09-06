@@ -26,13 +26,15 @@ module Clock_divider(
 	output reg clock_out, // output clock after dividing the input clock by divisor
 );
 
-	reg [31:0] clkdiv = 0;
+   `define size 22
+
+	reg [`size:0] clkdiv = 0;
 	reg clock_out = 0;
 
 	// Synchronous logic
 	always @(posedge clock_in) begin
 		// Clock divider pulse generator
-		if (clkdiv == 6000000) begin
+		if (clkdiv[`size]) begin
 			clkdiv <= 0;
 			clock_out <= 1;
 		end else begin
