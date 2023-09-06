@@ -109,3 +109,12 @@ isim.cmd
 isim.log
 *isim_beh.exe
 *envsettings.html
+
+#yosys intermediate files
+._*
+*.yslog
+*.bin
+*.json
+*.asc
+*.nplog
+*.rpt
