@@ -25,14 +25,20 @@ module Clock_divider(
 	output reg clock_out // output clock after dividing the input clock by divisor
 );
 
-   `define size 21
+localparam SLOW_bits = 22;
 
-	reg [`size:0] clkdiv = 0;
+`ifdef BENCH
+   localparam SLOW = SLOW_bits-4;
+`else
+   localparam SLOW = SLOW_bits;
+`endif
+
+	reg [SLOW:0] clkdiv = 0;
 
 	// Synchronous logic
 	always @(posedge clock_in) begin
 		// Clock divider pulse generator
-		if (clkdiv[`size]) begin
+		if (clkdiv[SLOW]) begin
 			clkdiv <= 0;
 			clock_out <= 1;
 		end else begin
