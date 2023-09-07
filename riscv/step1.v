@@ -1,16 +1,15 @@
-   module top (
-       input  CLK,
-       input  BTN_N,BTN1,
-       output LED1, LED2, LED3, LED4, LED5
+module top (
+       input  CLK,        
+       input  RESET,      
+       output [4:0] LEDS, 
+       input  RXD,        
+       output TXD  
    );
-
+  
    wire clkd;
-   wire [4:0] LEDS;
-
-   assign {LED1, LED2, LED3, LED4, LED5} = LEDS;
-   
    reg [4:0] count = 0;
    assign LEDS = count;
+   assign TXD  = 1'b0; // not used for now
 
    Clock_divider clkdiv(.clock_in(CLK), .clock_out(clkd));
    
@@ -19,7 +18,7 @@
    end
 
 
-   endmodule
+endmodule
 
 module Clock_divider(
 	input clock_in, // input clock on FPGA

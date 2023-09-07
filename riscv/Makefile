@@ -3,7 +3,7 @@ PROJ = step1
 all: $(PROJ).rpt $(PROJ).bin
 
 $(PROJ).json: $(PROJ).v
-	yosys -ql $(PROJ).yslog -p 'synth_ice40 -top top -json $@' $<
+	yosys -ql $(PROJ).yslog -p 'synth_ice40 -top SOC -json $@' $<
 
 $(PROJ).asc: $(PROJ).json icebreaker.pcf
 	nextpnr-ice40 -ql $(PROJ).nplog --up5k --package sg48 --freq 12 --asc $@ --pcf icebreaker.pcf --json $<
