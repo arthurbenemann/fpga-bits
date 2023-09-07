@@ -1,4 +1,4 @@
-module top (
+module SOC (
        input  CLK,        
        input  RESET,      
        output [4:0] LEDS, 
@@ -22,13 +22,12 @@ endmodule
 
 module Clock_divider(
 	input clock_in, // input clock on FPGA
-	output reg clock_out, // output clock after dividing the input clock by divisor
+	output reg clock_out // output clock after dividing the input clock by divisor
 );
 
-   `define size 22
+   `define size 21
 
 	reg [`size:0] clkdiv = 0;
-	reg clock_out = 0;
 
 	// Synchronous logic
 	always @(posedge clock_in) begin

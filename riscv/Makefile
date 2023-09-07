@@ -36,9 +36,17 @@ sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'
 	sudo iceprog $<
 
+sim: $(PROJ).out bench_iverilog.v
+	vvp -n $<
+
+$(PROJ).out: $(PROJ).v bench_iverilog.v
+	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
+
+
 clean:
 	rm -f $(PROJ).yslog $(PROJ).nplog $(PROJ).json $(PROJ).asc $(PROJ).rpt $(PROJ).bin
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
+	rm -f $(PROJ).out
 
 .SECONDARY:
-.PHONY: all prog clean
+.PHONY: all prog clean sim
