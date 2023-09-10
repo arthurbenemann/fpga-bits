@@ -1,4 +1,4 @@
-PROJ = step4
+PROJ = step5
 
 all: $(PROJ).rpt $(PROJ).bin
 
