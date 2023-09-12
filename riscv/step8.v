@@ -137,13 +137,17 @@ module SOC (
 
     // debug
    `include "riscv_assembly.v"
-    integer L0_=4;
+    integer L0_= 16;
     initial begin
-	    ADD(x1,x0,x0);          // X1 = zero
+        ADDI(x3,zero,0);
+	    ADDI(x2,zero,1);
+        ADDI(x1,zero,0);
+        ADDI(x1,zero,1);
         Label(L0_);
-        ADDI(x1,x1,1);          // X1++
-	    //JAL(x0,LabelRef(L0_));  // Loop
-        JALR(x0,x0,4);
+        ADD(x1,x2,x3);
+        ADDI(x3,x2,0);
+        ADDI(x2,x1,0);
+	    JAL(x0,LabelRef(L0_));
         EBREAK();
         endASM();
     end
