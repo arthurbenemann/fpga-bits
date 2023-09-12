@@ -127,7 +127,7 @@ module SOC (
         3'b010:	aluOut = $signed(aluIn1) < $signed(aluIn2);                         //signed comparison (<)
         3'b011:	aluOut = aluIn1 < aluIn2;                                           //unsigned comparison (<)
         3'b100:	aluOut = aluIn1 ^ aluIn2;                                           //XOR
-        3'b101:	aluOut = (funct7[5])? ($signed(aluIn1)>>>shamt):(aluIn1>>shamt);     //LogicalRShift or AritimeticRShift
+        3'b101:	aluOut = (funct7[5])? ($signed(aluIn1) >>> shamt):($signed(aluIn1)>>shamt);     //LogicalRShift or AritimeticRShift
         3'b110: aluOut = aluIn1 | aluIn2;                                           //OR
         3'b111: aluOut = aluIn1 & aluIn2;                                           //AND
         endcase
@@ -138,19 +138,28 @@ module SOC (
     // debug
    `include "riscv_assembly.v"
    initial begin
-      ADD(x0,x0,x0);
-      ADD(x1,x0,x0);
-      ADDI(x1,x1,1);
-      ADDI(x1,x1,1);
-      ADDI(x1,x1,1);
-      ADDI(x1,x1,1);
-      ADD(x2,x1,x0);
-      ADD(x3,x1,x2);
-      SRLI(x3,x3,3);
-      SLLI(x3,x3,31);
-      SRAI(x3,x3,5);
-      SRLI(x1,x3,26);
-      EBREAK();
+    //   ADD(x0,x0,x0);
+    //   ADD(x1,x0,x0);
+    //   ADDI(x1,x1,1);
+    //   ADDI(x1,x1,1);
+    //   ADDI(x1,x1,1);
+    //   ADDI(x1,x1,1);
+    //   ADD(x2,x1,x0);
+    //   ADD(x3,x1,x2);
+    //   SRLI(x3,x3,3);
+    //   SLLI(x3,x3,31);
+    //   SRAI(x3,x3,5);
+    //   SRLI(x1,x3,26);
+
+        
+        ADDI(x1,x0,0);
+        ADDI(x1,x0,-4);
+        //SLLI(x1,x1,2);
+        //SLLI(x1,x1,1);
+        SRAI(x1,x1,1);
+        SRAI(x1,x1,1);
+        SRAI(x1,x1,1);
+        EBREAK();
    end
    
 
