@@ -12,7 +12,7 @@ module SOC (
    
    assign TXD  = 1'b0; // not used for now
 
-   Clockworks #(.SLOW(22))CW(.clock_in(CLK), .clock_out(clkd));
+   Clockworks #(.SLOW(21))CW(.clock_in(CLK), .clock_out(clkd));
 
 
     // Registers
@@ -25,7 +25,10 @@ module SOC (
     reg [31:0] rs2;
     wire [31:0] writeBackData =  (isJAL | isJALR)? (PC+4) : aluOut; 
     wire writeBackEn = (state == EXECUTE && (isALUreg || isALUimm || isJALR || isJAL));
-    wire [31:0] nextPC = (isJAL ? PC+Jimm : (isJALR ? rs1+Iimm : (PC+4)));
+    wire [31:0] nextPC =      isJAL ? PC+Jimm   :
+                             isJALR ? rs1+Iimm  :
+            (isBranch && takeBranch)? PC+Bimm      :
+                                      PC+4;
 
     `ifdef BENCH    // clear registers on boot
         integer i;
@@ -132,13 +135,29 @@ module SOC (
         3'b111: aluOut = aluIn1 & aluIn2;                                           //AND
         endcase
     end
+
+    reg takeBranch;
+    always @(*) begin
+        case(funct3)
+        3'b000:	takeBranch = (        rs1  ==         rs2);  // BEQ
+        3'b001:	takeBranch = (        rs1  !=         rs2);  // BNE
+        3'b100:	takeBranch = ($signed(rs1) <  $signed(rs2)); // BLT
+        3'b101:	takeBranch = ($signed(rs1) >= $signed(rs2)); // BGE
+        3'b110: takeBranch = (        rs1  <          rs2);  // BLTU
+        3'b111: takeBranch = (        rs1  >=         rs2);  // BGEU
+        default: takeBranch = 1'b0;
+        endcase
+    end
+
+    
     
 
 
     // debug
    `include "riscv_assembly.v"
-    integer L0_= 16;
+    integer L0_= 20;
     initial begin
+        ADDI(x4,zero,21);
         ADDI(x3,zero,0);
 	    ADDI(x2,zero,1);
         ADDI(x1,zero,0);
@@ -147,23 +166,25 @@ module SOC (
         ADD(x1,x2,x3);
         ADDI(x3,x2,0);
         ADDI(x2,x1,0);
-	    JAL(x0,LabelRef(L0_));
+	    //JAL(x0,LabelRef(L0_));
+        BLT(x1,x4,LabelRef(L0_));
         EBREAK();
         endASM();
     end
    
 
-    `ifdef BENCH   
+    //`ifdef BENCH
+    `ifdef SKIP_DEBUG
         always @(posedge clkd) begin
-            //$display("PC=%0d, writeback:%b writedata:%b",PC,writeBackEn,writeBackData);
+            $display("PC=%0d takeBranch=%d nextPC=%d ",PC, takeBranch, nextPC);
             if(state == FETCH_INSTR) begin
-                //$display("FETCH_INSTR: instr=%b", MEM[PC]);
+                $display("FETCH_INSTR: instr=%b", MEM[PC[31:2]]);
             end
             if(state == FETCH_REGS) begin
                 case (1'b1)
                     isALUreg: $display("FETCH_REGS: ALUreg rd=%d rs1=%d rs2=%d funct3=%b funct7=%b",rdId, rs1Id, rs2Id, funct3, funct7);
                     isALUimm: $display("FETCH_REGS: ALUimm rd=%d rs1=%d imm=%0d funct3=%b funct7=%b",rdId, rs1Id, Iimm, funct3, funct7);
-                    isBranch: $display("FETCH_REGS: BRANCH");
+                    isBranch: $display("FETCH_REGS: BRANCH takeBranch=%d rs1=%d rs2=%d funct3=%b Bimm=%b",takeBranch,rs1Id, rs2Id, funct3, Bimm);
                     isJAL:    $display("FETCH_REGS: JAL");
                     isJALR:   $display("FETCH_REGS: JALR");
                     isAUIPC:  $display("FETCH_REGS: AUIPC");
@@ -174,7 +195,7 @@ module SOC (
                 endcase 
             end
             if(state== EXECUTE) begin
-                //$display("EXECUTE: rs1=%b rs2=%b",rs1,rs2);
+                $display("EXECUTE: rs1=%b rs2=%b",rs1,rs2);
             end
     end
 `endif
