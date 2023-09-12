@@ -23,10 +23,9 @@ module SOC (
     reg [31:0] RegisterBank [0:31];
     reg [31:0] rs1;
     reg [31:0] rs2;
-    wire [31:0] writeBackData;
-    wire        writeBackEn;
-    assign writeBackData = aluOut; 
-    assign writeBackEn = (state == EXECUTE && (isALUreg || isALUimm) );  
+    wire [31:0] writeBackData =  (isJAL | isJALR)? (PC+4) : aluOut; 
+    wire writeBackEn = (state == EXECUTE && (isALUreg || isALUimm || isJALR || isJAL));
+    wire [31:0] nextPC = (isJAL ? PC+Jimm : (isJALR ? rs1+Iimm : (PC+4)));
 
     `ifdef BENCH    // clear registers on boot
         integer i;
@@ -82,7 +81,8 @@ module SOC (
         end else begin
             if(writeBackEn && rdId != 0) begin
                 RegisterBank[rdId] <= writeBackData;
-                    // For displaying what happens.
+                
+                // For displaying what happens.
                 if(rdId == 1) begin
                     LEDS <= writeBackData;
                 end
@@ -103,7 +103,7 @@ module SOC (
 	        end
 	        EXECUTE: begin
                 if(!isSYSTEM) begin
-	                PC <= PC + 4;
+	                PC <= nextPC;
                 end
 	            state <= FETCH_INSTR;	      
                 `ifdef BENCH      
@@ -137,30 +137,16 @@ module SOC (
 
     // debug
    `include "riscv_assembly.v"
-   initial begin
-    //   ADD(x0,x0,x0);
-    //   ADD(x1,x0,x0);
-    //   ADDI(x1,x1,1);
-    //   ADDI(x1,x1,1);
-    //   ADDI(x1,x1,1);
-    //   ADDI(x1,x1,1);
-    //   ADD(x2,x1,x0);
-    //   ADD(x3,x1,x2);
-    //   SRLI(x3,x3,3);
-    //   SLLI(x3,x3,31);
-    //   SRAI(x3,x3,5);
-    //   SRLI(x1,x3,26);
-
-        
-        ADDI(x1,x0,0);
-        ADDI(x1,x0,-4);
-        //SLLI(x1,x1,2);
-        //SLLI(x1,x1,1);
-        SRAI(x1,x1,1);
-        SRAI(x1,x1,1);
-        SRAI(x1,x1,1);
+    integer L0_=4;
+    initial begin
+	    ADD(x1,x0,x0);          // X1 = zero
+        Label(L0_);
+        ADDI(x1,x1,1);          // X1++
+	    //JAL(x0,LabelRef(L0_));  // Loop
+        JALR(x0,x0,4);
         EBREAK();
-   end
+        endASM();
+    end
    
 
     `ifdef BENCH   
