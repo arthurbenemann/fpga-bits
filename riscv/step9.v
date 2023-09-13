@@ -12,7 +12,7 @@ module SOC (
    
    assign TXD  = 1'b0; // not used for now
 
-   Clockworks #(.SLOW(21))CW(.clock_in(CLK), .clock_out(clkd));
+   Clockworks #(.SLOW(19))CW(.clock_in(CLK), .clock_out(clkd));
 
 
     // Registers
@@ -155,19 +155,23 @@ module SOC (
 
     // debug
    `include "riscv_assembly.v"
-    integer L0_= 20;
+    integer L0_= 12;
+    integer L1_= 24;
     initial begin
-        ADDI(x4,zero,21);
-        ADDI(x3,zero,0);
-	    ADDI(x2,zero,1);
-        ADDI(x1,zero,0);
-        ADDI(x1,zero,1);
+
+
+        ADDI(x1,zero, 5'b00001);
+        ADDI(x2,zero, 5'b10000);
+        ADDI(x3,zero, 5'b00001);
         Label(L0_);
-        ADD(x1,x2,x3);
-        ADDI(x3,x2,0);
-        ADDI(x2,x1,0);
-	    //JAL(x0,LabelRef(L0_));
-        BLT(x1,x4,LabelRef(L0_));
+        SLLI(x1,x1,1);
+        NOP();
+        BNE(x1,x2,LabelRef(L0_));
+        Label(L1_);
+        SRLI(x1,x1,1);
+        NOP();
+        BNE(x1,x3,LabelRef(L1_));
+        JAL(x0,LabelRef(L0_));
         EBREAK();
         endASM();
     end
