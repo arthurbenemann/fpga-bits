@@ -25,26 +25,31 @@ module Memory (
 
     // debug
     `include "riscv_assembly.v"
-    integer _loop   = 4;
-    integer _wait  = 24;
-    integer _wait_loop   = 32;
+    integer _mul  = 28;
+    integer _mul_loop = 40;
+    integer _mul_exit = 56;
    
     initial begin
-        ADD(a0,zero,zero);
-    Label(_loop); 
-        ADDI(a0,a0,1);
-        CALL(LabelRef(_wait));
-        J(LabelRef(_loop)); 
+        LI(a0,4637);   // Multiplication factor1
+        LI(a1,251);   // Multiplication factor2
+//        NOP();       // remove NOP as needed to keep label position
+        
+        CALL(LabelRef(_mul));
+        MV(a0,a0);  // a0 is LEDs
         EBREAK(); 
 
-    Label(_wait);
-        ADDI(a1,zero,1);
-        SLLI(a1,a1,slow_bit);
-    Label(_wait_loop);
-        ADDI(a1,a1,-1);
-        BNE(a1,zero,LabelRef(_wait_loop));
-        RET(); 
-        
+    Label(_mul);   
+        MV(t0,a0);
+        MV(t1,a1);
+        LI(a0,0);
+    Label(_mul_loop);   
+        BEQZ(t0,LabelRef(_mul_exit));
+        ADD(a0,a0,t1);
+        ADDI(t0,t0,-1);
+        J(LabelRef(_mul_loop));
+    Label(_mul_exit);   
+        RET();
+
         endASM();
     
     end
@@ -85,7 +90,7 @@ module Processor (
                     x10_s <= writeBackData;
                 end
                 `ifdef BENCH	 
-                        //$display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
+                        $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
                 `endif	
 	        end
 
