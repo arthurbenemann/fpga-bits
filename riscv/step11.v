@@ -53,6 +53,63 @@ module Processor (
     output reg [31:0] x10_s		  
 );
 
+
+    // CPU state machine
+    localparam FETCH_INSTR = 0;
+    localparam WAIT_INSTR  = 1;
+    localparam FETCH_REGS  = 2;
+    localparam EXECUTE     = 3;
+
+    reg [1:0] state = FETCH_INSTR;
+    
+    assign mem_addr = PC;
+    assign mem_rstrb = (state == FETCH_INSTR);
+
+    always @(posedge clk) begin
+        if(!resetn) begin
+	        PC <= 0;
+	        state <= FETCH_INSTR;
+        end else begin
+            if(writeBackEn && rdId != 0) begin
+                RegisterBank[rdId] <= writeBackData;
+                
+                // For displaying what happens.
+                if(rdId == 10) begin
+                    x10_s <= writeBackData;
+                end
+                `ifdef BENCH	 
+                        $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
+                `endif	
+	        end
+
+	        case(state)
+	        FETCH_INSTR: begin
+	            state <= WAIT_INSTR;
+	        end
+	        WAIT_INSTR: begin
+	            instr <= mem_rdata;
+	            state <= FETCH_REGS;
+	        end
+	        FETCH_REGS: begin
+	            rs1 <= RegisterBank[rs1Id];
+	            rs2 <= RegisterBank[rs2Id];
+	            state <= EXECUTE;
+	        end
+	        EXECUTE: begin
+                if(!isSYSTEM) begin
+	                PC <= nextPC;
+                end
+	            state <= FETCH_INSTR;	      
+                `ifdef BENCH      
+                    if(isSYSTEM) $finish();
+                `endif   
+	        end
+	        endcase
+            
+        end
+    end 
+
+
     // Registers
     reg [31:0] PC =0;              // program counter
     reg [31:0] instr;           // current instruction
@@ -60,6 +117,9 @@ module Processor (
     reg [31:0] RegisterBank [0:31];
     reg [31:0] rs1;
     reg [31:0] rs2;
+
+
+    // Register update control
     wire writeBackEn = (state == EXECUTE && 
                                     (isALUreg ||
                                      isALUimm ||
@@ -117,61 +177,6 @@ module Processor (
     wire [31:0] Bimm={{20{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
     wire [31:0] Jimm={{12{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0};
 
-
-    // CPU state machine
-    localparam FETCH_INSTR = 0;
-    localparam WAIT_INSTR  = 1;
-    localparam FETCH_REGS  = 2;
-    localparam EXECUTE     = 3;
-
-    reg [1:0] state = FETCH_INSTR;
-    
-    assign mem_addr = PC;
-    assign mem_rstrb = (state == FETCH_INSTR);
-
-    always @(posedge clk) begin
-        if(!resetn) begin
-	        PC <= 0;
-	        state <= FETCH_INSTR;
-        end else begin
-            if(writeBackEn && rdId != 0) begin
-                RegisterBank[rdId] <= writeBackData;
-                
-                // For displaying what happens.
-                if(rdId == 10) begin
-                    x10_s <= writeBackData;
-                end
-                `ifdef BENCH	 
-                        $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
-                `endif	
-	        end
-
-	        case(state)
-	        FETCH_INSTR: begin
-	            state <= WAIT_INSTR;
-	        end
-	        WAIT_INSTR: begin
-	            instr <= mem_rdata;
-	            state <= FETCH_REGS;
-	        end
-	        FETCH_REGS: begin
-	            rs1 <= RegisterBank[rs1Id];
-	            rs2 <= RegisterBank[rs2Id];
-	            state <= EXECUTE;
-	        end
-	        EXECUTE: begin
-                if(!isSYSTEM) begin
-	                PC <= nextPC;
-                end
-	            state <= FETCH_INSTR;	      
-                `ifdef BENCH      
-                    if(isSYSTEM) $finish();
-                `endif   
-	        end
-	        endcase
-            
-        end
-    end 
 
     // ALU
     wire [31:0] aluIn1 = rs1;
@@ -265,8 +270,8 @@ module SOC (
     .x10_s(x10)
     );
     wire [31:0] x10;
-    assign LEDS = x10[4:0];
 
+    assign LEDS = x10[4:0];
     assign TXD  = 1'b0; // not used for now
 
 endmodule
