@@ -15,28 +15,35 @@ module Memory (
       end
    end
 
+
+    `ifdef BENCH
+        localparam slow_bit=12;
+    `else
+        localparam slow_bit=12+4;
+    `endif
+
+
     // debug
     `include "riscv_assembly.v"
-    integer L0_   = 4;
-    integer wait_ = 20;
-    integer L1_   = 28;
+    integer _loop   = 4;
+    integer _wait  = 24;
+    integer _wait_loop   = 32;
    
     initial begin
-        ADD(x10,x0,x0);
-    Label(L0_); 
-        ADDI(x10,x10,1);
-        JAL(x1,LabelRef(wait_)); // call(wait_)
-        JAL(zero,LabelRef(L0_)); // jump(l0_)
-        
+        ADD(a0,zero,zero);
+    Label(_loop); 
+        ADDI(a0,a0,1);
+        CALL(LabelRef(_wait));
+        J(LabelRef(_loop)); 
         EBREAK(); 
 
-    Label(wait_);
-        ADDI(x11,x0,1);
-        SLLI(x11,x11,4);
-    Label(L1_);
-        ADDI(x11,x11,-1);
-        BNE(x11,x0,LabelRef(L1_));
-        JALR(x0,x1,0);	  
+    Label(_wait);
+        ADDI(a1,zero,1);
+        SLLI(a1,a1,slow_bit);
+    Label(_wait_loop);
+        ADDI(a1,a1,-1);
+        BNE(a1,zero,LabelRef(_wait_loop));
+        RET(); 
         
         endASM();
     
@@ -78,7 +85,7 @@ module Processor (
                     x10_s <= writeBackData;
                 end
                 `ifdef BENCH	 
-                        $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
+                        //$display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
                 `endif	
 	        end
 
@@ -278,7 +285,7 @@ module SOC (
         output TXD  
     );
     
-    Clockworks #(.SLOW(15))CW(.clock_in(CLK), .clock_out(clk));
+    Clockworks CW(.clock_in(CLK), .clock_out(clk));
     wire clk;
 
     Memory RAM(
