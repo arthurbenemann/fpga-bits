@@ -1,22 +1,59 @@
 `include "clockworks.v"
 
-module SOC (
-       input  CLK,        
-       input  RESET,      
-       output reg [4:0] LEDS, 
-       input  RXD,        
-       output TXD  
-   );
-  
-   wire clkd;
+
+module Memory (
+    input               clk,
+    input      [31:0]   mem_addr,  // address to be read
+    output reg [31:0]   mem_rdata, // data read from memory
+    input   	        mem_rstrb  // goes high when processor wants to read
+);
+    reg [31:0] MEM [0:255];     // RAM
+
+   always @(posedge clk) begin
+      if(mem_rstrb) begin
+         mem_rdata <= MEM[mem_addr[31:2]];
+      end
+   end
+
+    // debug
+    `include "riscv_assembly.v"
+    integer L0_   = 4;
+    integer wait_ = 20;
+    integer L1_   = 28;
    
-   assign TXD  = 1'b0; // not used for now
+    initial begin
+        ADD(x10,x0,x0);
+    Label(L0_); 
+        ADDI(x10,x10,1);
+        JAL(x1,LabelRef(wait_)); // call(wait_)
+        JAL(zero,LabelRef(L0_)); // jump(l0_)
+        
+        EBREAK(); 
 
-   Clockworks #(.SLOW(15))CW(.clock_in(CLK), .clock_out(clkd));
+    Label(wait_);
+        ADDI(x11,x0,1);
+        SLLI(x11,x11,4);
+    Label(L1_);
+        ADDI(x11,x11,-1);
+        BNE(x11,x0,LabelRef(L1_));
+        JALR(x0,x1,0);	  
+        
+        endASM();
+    
+    end
 
+endmodule
+
+module Processor (
+    input 	      clk,
+    input 	      resetn,
+    output     [31:0] mem_addr, 
+    input      [31:0] mem_rdata, 
+    output 	      mem_rstrb,
+    output reg [31:0] x10_s		  
+);
 
     // Registers
-    reg [31:0] MEM [0:255];     // RAM
     reg [31:0] PC =0;              // program counter
     reg [31:0] instr;           // current instruction
 
@@ -83,12 +120,17 @@ module SOC (
 
     // CPU state machine
     localparam FETCH_INSTR = 0;
-    localparam FETCH_REGS  = 1;
-    localparam EXECUTE     = 2;
-    reg [1:0] state = FETCH_INSTR;
+    localparam WAIT_INSTR  = 1;
+    localparam FETCH_REGS  = 2;
+    localparam EXECUTE     = 3;
 
-    always @(posedge clkd) begin
-        if(!RESET) begin
+    reg [1:0] state = FETCH_INSTR;
+    
+    assign mem_addr = PC;
+    assign mem_rstrb = (state == FETCH_INSTR);
+
+    always @(posedge clk) begin
+        if(!resetn) begin
 	        PC <= 0;
 	        state <= FETCH_INSTR;
         end else begin
@@ -96,8 +138,8 @@ module SOC (
                 RegisterBank[rdId] <= writeBackData;
                 
                 // For displaying what happens.
-                if(rdId == x10) begin
-                    LEDS <= writeBackData;
+                if(rdId == 10) begin
+                    x10_s <= writeBackData;
                 end
                 `ifdef BENCH	 
                         $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
@@ -106,7 +148,10 @@ module SOC (
 
 	        case(state)
 	        FETCH_INSTR: begin
-	            instr <= MEM[PC[31:2]];
+	            state <= WAIT_INSTR;
+	        end
+	        WAIT_INSTR: begin
+	            instr <= mem_rdata;
 	            state <= FETCH_REGS;
 	        end
 	        FETCH_REGS: begin
@@ -158,40 +203,11 @@ module SOC (
         default: takeBranch = 1'b0;
         endcase
     end
-
-
-    // debug
-    `include "riscv_assembly.v"
-    integer L0_   = 4;
-    integer wait_ = 20;
-    integer L1_   = 28;
-    integer slow_bit   = 28;
-   
-    initial begin
-        ADD(x10,x0,x0);
-    Label(L0_); 
-        ADDI(x10,x10,1);
-        JAL(x1,LabelRef(wait_)); // call(wait_)
-        JAL(zero,LabelRef(L0_)); // jump(l0_)
-        
-        EBREAK(); 
-
-    Label(wait_);
-        ADDI(x11,x0,1);
-        SLLI(x11,x11,4);
-    Label(L1_);
-        ADDI(x11,x11,-1);
-        BNE(x11,x0,LabelRef(L1_));
-        JALR(x0,x1,0);	  
-        
-        endASM();
-    
-    end
    
 
     //`ifdef BENCH
     `ifdef SKIP_DEBUG
-        always @(posedge clkd) begin
+        always @(posedge clk) begin
             $display("PC=%0d takeBranch=%d nextPC=%d ",PC, takeBranch, nextPC);
             if(state == FETCH_INSTR) begin
                 $display("FETCH_INSTR: instr=%b", MEM[PC[31:2]]);
@@ -213,8 +229,44 @@ module SOC (
             if(state== EXECUTE) begin
                 $display("EXECUTE: rs1=%b rs2=%b",rs1,rs2);
             end
-    end
-`endif
+        end
+    `endif
 
+endmodule
+
+
+module SOC (
+        input  CLK,        
+        input  RESET,      
+        output [4:0] LEDS, 
+        input  RXD,        
+        output TXD  
+    );
+    
+    Clockworks #(.SLOW(15))CW(.clock_in(CLK), .clock_out(clk));
+    wire clk;
+
+    Memory RAM(
+      .clk(clk),
+      .mem_addr(mem_addr),
+      .mem_rdata(mem_rdata),
+      .mem_rstrb(mem_rstrb)
+    );
+    wire [31:0] mem_addr;
+    wire [31:0] mem_rdata;
+    wire mem_rstrb;
+
+    Processor CPU(
+    .clk(clk),
+    .resetn(RESET),
+    .mem_addr(mem_addr), 
+    .mem_rdata(mem_rdata), 
+    .mem_rstrb(mem_rstrb),
+    .x10_s(x10)
+    );
+    wire [31:0] x10;
+    assign LEDS = x10[4:0];
+
+    assign TXD  = 1'b0; // not used for now
 
 endmodule
