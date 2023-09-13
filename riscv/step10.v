@@ -12,7 +12,7 @@ module SOC (
    
    assign TXD  = 1'b0; // not used for now
 
-   Clockworks #(.SLOW(19))CW(.clock_in(CLK), .clock_out(clkd));
+   Clockworks #(.SLOW(15))CW(.clock_in(CLK), .clock_out(clkd));
 
 
     // Registers
@@ -23,8 +23,18 @@ module SOC (
     reg [31:0] RegisterBank [0:31];
     reg [31:0] rs1;
     reg [31:0] rs2;
-    wire [31:0] writeBackData =  (isJAL | isJALR)? (PC+4) : aluOut; 
-    wire writeBackEn = (state == EXECUTE && (isALUreg || isALUimm || isJALR || isJAL));
+    wire writeBackEn = (state == EXECUTE && 
+                                    (isALUreg ||
+                                     isALUimm ||
+                                       isJALR ||
+                                        isJAL ||
+                                        isLUI ||
+                                      isAUIPC   ));
+    wire [31:0] writeBackData =    (isJAL | isJALR)? (PC+4) :
+                                            (isLUI)? Uimm:
+                                          (isAUIPC)? Uimm+PC:         
+                                                     aluOut; 
+
     wire [31:0] nextPC =      isJAL ? PC+Jimm   :
                              isJALR ? rs1+Iimm  :
             (isBranch && takeBranch)? PC+Bimm      :
@@ -86,7 +96,7 @@ module SOC (
                 RegisterBank[rdId] <= writeBackData;
                 
                 // For displaying what happens.
-                if(rdId == 1) begin
+                if(rdId == x10) begin
                     LEDS <= writeBackData;
                 end
                 `ifdef BENCH	 
@@ -149,31 +159,33 @@ module SOC (
         endcase
     end
 
-    
-    
-
 
     // debug
-   `include "riscv_assembly.v"
-    integer L0_= 12;
-    integer L1_= 24;
+    `include "riscv_assembly.v"
+    integer L0_   = 4;
+    integer wait_ = 20;
+    integer L1_   = 28;
+    integer slow_bit   = 28;
+   
     initial begin
+        ADD(x10,x0,x0);
+    Label(L0_); 
+        ADDI(x10,x10,1);
+        JAL(x1,LabelRef(wait_)); // call(wait_)
+        JAL(zero,LabelRef(L0_)); // jump(l0_)
+        
+        EBREAK(); 
 
-
-        ADDI(x1,zero, 5'b00001);
-        ADDI(x2,zero, 5'b10000);
-        ADDI(x3,zero, 5'b00001);
-        Label(L0_);
-        SLLI(x1,x1,1);
-        NOP();
-        BNE(x1,x2,LabelRef(L0_));
-        Label(L1_);
-        SRLI(x1,x1,1);
-        NOP();
-        BNE(x1,x3,LabelRef(L1_));
-        JAL(x0,LabelRef(L0_));
-        EBREAK();
+    Label(wait_);
+        ADDI(x11,x0,1);
+        SLLI(x11,x11,4);
+    Label(L1_);
+        ADDI(x11,x11,-1);
+        BNE(x11,x0,LabelRef(L1_));
+        JALR(x0,x1,0);	  
+        
         endASM();
+    
     end
    
 
