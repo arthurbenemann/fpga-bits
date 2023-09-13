@@ -119,23 +119,30 @@ module Processor (
     reg [31:0] rs2;
 
 
-    // Register update control
-    wire writeBackEn = (state == EXECUTE && 
-                                    (isALUreg ||
-                                     isALUimm ||
-                                       isJALR ||
-                                        isJAL ||
-                                        isLUI ||
-                                      isAUIPC   ));
-    wire [31:0] writeBackData =    (isJAL | isJALR)? (PC+4) :
-                                            (isLUI)? Uimm:
-                                          (isAUIPC)? Uimm+PC:         
-                                                     aluOut; 
 
-    wire [31:0] nextPC =      isJAL ? PC+Jimm   :
-                             isJALR ? rs1+Iimm  :
-            (isBranch && takeBranch)? PC+Bimm      :
-                                      PC+4;
+   // Address computation
+   // An adder used to compute branch address, JAL address and AUIPC.
+   // branch->PC+Bimm    AUIPC->PC+Uimm    JAL->PC+Jimm
+   // Equivalent to PCplusImm = PC + (isJAL ? Jimm : isAUIPC ? Uimm : Bimm)
+    wire [31:0] PCplusImm = PC + ( isJAL ? Jimm[31:0] :
+	  			                 isAUIPC ? Uimm[31:0] :
+				                           Bimm[31:0] );
+    wire [31:0] PCplus4 = PC+4;
+    
+    // Register update control
+    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore);
+
+
+    wire [31:0] writeBackData = (isJAL | isJALR)? PCplus4:
+                                         isAUIPC? PCplusImm:         
+                                           isLUI? Uimm:
+                                                  aluOut; 
+
+    wire [31:0] nextPC =          isJALR ? {aluPlus[31:1],1'b0} :
+        ((isBranch && takeBranch)||isJAL)? PCplusImm :
+                                           PCplus4;
+
+
 
     `ifdef BENCH    // clear registers on boot
         integer i;
@@ -152,12 +159,12 @@ module Processor (
     // Instruction types
     wire isALUreg  =  (instr[6:0] == 7'b0110011);   // rd <- rs1 OP rs2   
     wire isALUimm  =  (instr[6:0] == 7'b0010011);   // rd <- rs1 OP Iimm
-    wire isBranch  =  (instr[6:0] == 7'b1100011); // if(rs1 OP rs2) PC<-PC+Bimm
-    wire isJALR    =  (instr[6:0] == 7'b1100111);   // rd <- PC+4; PC<-rs1+Iimm
-    wire isJAL     =  (instr[6:0] == 7'b1101111);   // rd <- PC+4; PC<-PC+Jimm
-    wire isAUIPC   =  (instr[6:0] == 7'b0010111);   // rd <- PC + Uimm
     wire isLUI     =  (instr[6:0] == 7'b0110111);   // rd <- Uimm   
     wire isLoad    =  (instr[6:0] == 7'b0000011);   // rd <- mem[rs1+Iimm]
+    wire isAUIPC   =  (instr[6:0] == 7'b0010111);   // rd <- PC + Uimm
+    wire isJALR    =  (instr[6:0] == 7'b1100111);   // rd <- PC+4; PC<-rs1+Iimm
+    wire isJAL     =  (instr[6:0] == 7'b1101111);   // rd <- PC+4; PC<-PC+Jimm
+    wire isBranch  =  (instr[6:0] == 7'b1100011);   // if(rs1 OP rs2) PC<-PC+Bimm
     wire isStore   =  (instr[6:0] == 7'b0100011);   // mem[rs1+Simm] <- rs2
     wire isSYSTEM  =  (instr[6:0] == 7'b1110011);   // special
 
@@ -180,31 +187,54 @@ module Processor (
 
     // ALU
     wire [31:0] aluIn1 = rs1;
-    wire [31:0] aluIn2 = isALUreg ? rs2 : Iimm;
+    wire [31:0] aluIn2 = isALUreg | isBranch ? rs2 : Iimm;
     wire [4:0]  shamt = isALUreg ? rs2: rs2Id;
     reg  [31:0] aluOut;
+
+    // intermediates for optimization
+    wire [31:0] aluPlus = aluIn1 + aluIn2;
+    wire [32:0] aluMinus = {1'b0,aluIn1} - {1'b0,aluIn2};
+    wire        EQ  = (aluMinus[31:0] == 0);
+    wire        LTU = aluMinus[32];
+    wire        LT  = (aluIn1[31] ^ aluIn2[31]) ? aluIn1[31] : aluMinus[32];
+   
+   // Flip a 32 bit word. Used by the shifter (a single shifter for left and right shifts, saves silicium !)
+   function [31:0] flip32;
+      input [31:0] x;
+      flip32 = {x[ 0], x[ 1], x[ 2], x[ 3], x[ 4], x[ 5], x[ 6], x[ 7], 
+		x[ 8], x[ 9], x[10], x[11], x[12], x[13], x[14], x[15], 
+		x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23],
+		x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
+   endfunction
+    
+    wire [31:0] shifter_in = (funct3 == 3'b001) ? flip32(aluIn1) : aluIn1;
+    wire [31:0] shifter = 
+               $signed({funct7[5] & aluIn1[31], shifter_in}) >>> shamt;
+    wire [31:0] leftshift = flip32(shifter);
+
     always @(*) begin
         case(funct3)
-        3'b000:	aluOut = (funct7[5] & isALUreg)? (aluIn1-aluIn2):(aluIn1+aluIn2);   //ADD or SUB
-        3'b001:	aluOut = aluIn1 << shamt;                                           //left shift
-        3'b010:	aluOut = $signed(aluIn1) < $signed(aluIn2);                         //signed comparison (<)
-        3'b011:	aluOut = aluIn1 < aluIn2;                                           //unsigned comparison (<)
-        3'b100:	aluOut = aluIn1 ^ aluIn2;                                           //XOR
-        3'b101:	aluOut = (funct7[5])? ($signed(aluIn1) >>> shamt):($signed(aluIn1)>>shamt);     //LogicalRShift or AritimeticRShift
-        3'b110: aluOut = aluIn1 | aluIn2;                                           //OR
-        3'b111: aluOut = aluIn1 & aluIn2;                                           //AND
+        3'b010:	aluOut = {31'b0, LT};                               //signed comparison (<)
+        3'b011:	aluOut = {31'b0, LTU};                              //unsigned comparison (<)
+        3'b001:	aluOut = leftshift;                                 //left shift
+        3'b101: aluOut = shifter;
+        3'b000:	aluOut = (funct7[5] & isALUreg)? (aluMinus[31:0]):
+                                                 (aluPlus);         //ADD or SUB
+        3'b110: aluOut = aluIn1 | aluIn2;                           //OR
+        3'b111: aluOut = aluIn1 & aluIn2;                           //AND
+        3'b100:	aluOut = aluIn1 ^ aluIn2;                           //XOR
         endcase
     end
 
     reg takeBranch;
     always @(*) begin
         case(funct3)
-        3'b000:	takeBranch = (        rs1  ==         rs2);  // BEQ
-        3'b001:	takeBranch = (        rs1  !=         rs2);  // BNE
-        3'b100:	takeBranch = ($signed(rs1) <  $signed(rs2)); // BLT
-        3'b101:	takeBranch = ($signed(rs1) >= $signed(rs2)); // BGE
-        3'b110: takeBranch = (        rs1  <          rs2);  // BLTU
-        3'b111: takeBranch = (        rs1  >=         rs2);  // BGEU
+        3'b000:	takeBranch =  EQ;   // BEQ
+        3'b001:	takeBranch = !EQ;   // BNE
+        3'b100:	takeBranch =  LT;   // BLT
+        3'b101:	takeBranch = !LT;   // BGE
+        3'b110: takeBranch =  LTU;  // BLTU
+        3'b111: takeBranch = !LTU;  // BGEU
         default: takeBranch = 1'b0;
         endcase
     end
