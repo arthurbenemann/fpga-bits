@@ -11,6 +11,7 @@ module Memory (
 
    always @(posedge clk) begin
       if(mem_rstrb) begin
+            //$display("MEM: mem_add %d, mem_rdata %d", mem_addr[31:2], MEM[mem_addr[31:2]]);
          mem_rdata <= MEM[mem_addr[31:2]];
       end
    end
@@ -25,33 +26,35 @@ module Memory (
 
     // debug
     `include "riscv_assembly.v"
-    integer _mul  = 28;
-    integer _mul_loop = 40;
-    integer _mul_exit = 56;
+    integer L0_   = 8;
+    integer wait_ = 32;
+    integer L1_   = 40;
    
     initial begin
-        LI(a0,4637);   // Multiplication factor1
-        LI(a1,251);   // Multiplication factor2
-//        NOP();       // remove NOP as needed to keep label position
-        
-        CALL(LabelRef(_mul));
-        MV(a0,a0);  // a0 is LEDs
+        LI(s0,0);   
+        LI(s1,16);
+    Label(L0_); 
+        LB(a0,s0,400); // LEDs are plugged on a0 (=x10)
+        CALL(LabelRef(wait_));
+        ADDI(s0,s0,1); 
+        BNE(s0,s1, LabelRef(L0_));
         EBREAK(); 
 
-    Label(_mul);   
-        MV(t0,a0);
-        MV(t1,a1);
-        LI(a0,0);
-    Label(_mul_loop);   
-        BEQZ(t0,LabelRef(_mul_exit));
-        ADD(a0,a0,t1);
+    Label(wait_);
+        LI(t0,1);
+        SLLI(t0,t0,slow_bit);
+    Label(L1_);
         ADDI(t0,t0,-1);
-        J(LabelRef(_mul_loop));
-    Label(_mul_exit);   
+        BNEZ(t0,LabelRef(L1_));
         RET();
 
         endASM();
     
+        // Note: index 100 (word address)  corresponds to address 400 (byte address)
+        MEM[100] = {8'h4, 8'h3, 8'h2, 8'h1};
+        MEM[101] = {8'h8, 8'h7, 8'h6, 8'h5};
+        MEM[102] = {8'hc, 8'hb, 8'ha, 8'h9};
+        MEM[103] = {8'hff, 8'h0, 8'h0, 8'h00}; 
     end
 
 endmodule
@@ -71,11 +74,10 @@ module Processor (
     localparam WAIT_INSTR  = 1;
     localparam FETCH_REGS  = 2;
     localparam EXECUTE     = 3;
-
-    reg [1:0] state = FETCH_INSTR;
+    localparam LOAD        = 4;
+    localparam WAIT_DATA   = 5;
     
-    assign mem_addr = PC;
-    assign mem_rstrb = (state == FETCH_INSTR);
+    reg [2:0] state = FETCH_INSTR;
 
     always @(posedge clk) begin
         if(!resetn) begin
@@ -90,7 +92,9 @@ module Processor (
                     x10_s <= writeBackData;
                 end
                 `ifdef BENCH	 
+                    if(state == EXECUTE ^ isLoad) begin
                         $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
+                    end
                 `endif	
 	        end
 
@@ -111,10 +115,16 @@ module Processor (
                 if(!isSYSTEM) begin
 	                PC <= nextPC;
                 end
-	            state <= FETCH_INSTR;	      
                 `ifdef BENCH      
                     if(isSYSTEM) $finish();
                 `endif   
+	            state <= isLoad ? LOAD : FETCH_INSTR;
+	        end
+            LOAD: begin
+                state <= WAIT_DATA;
+            end
+            WAIT_DATA: begin
+                state <= FETCH_INSTR;
 	        end
 	        endcase
             
@@ -142,14 +152,20 @@ module Processor (
     wire [31:0] PCplus4 = PC+4;
     
     // Register update control
-    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore);
+    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore)|| (state == WAIT_DATA);
 
 
     wire [31:0] writeBackData = (isJAL | isJALR)? PCplus4:
                                          isAUIPC? PCplusImm:         
+                                          isLoad? LOAD_data:
                                            isLUI? Uimm:
                                                   aluOut; 
 
+    // Memmory interface
+    assign mem_addr = (state == WAIT_INSTR || state == FETCH_INSTR)? PC : loadstore_addr;
+    assign mem_rstrb = (state == FETCH_INSTR || state == LOAD);
+
+    // PC update
     wire [31:0] nextPC =          isJALR ? {aluPlus[31:1],1'b0} :
         ((isBranch && takeBranch)||isJAL)? PCplusImm :
                                            PCplus4;
@@ -166,8 +182,25 @@ module Processor (
     `endif   
 
 
-    // RISCV decoder
+    // Load instructions
+    wire [31:0] loadstore_addr = aluPlus;
 
+    wire [15:0] LOAD_halfword = loadstore_addr[1] ? mem_rdata[31:16] : mem_rdata[15:0];
+    wire  [7:0] LOAD_byte = loadstore_addr[0] ? LOAD_halfword[15:8] : LOAD_halfword[7:0];
+
+    wire mem_byteAccess     = funct3[1:0] == 2'b00;
+    wire mem_halfwordAccess = funct3[1:0] == 2'b01;
+    wire mem_MSB = mem_byteAccess ? LOAD_byte[7] : LOAD_halfword[15];
+    wire LOAD_sign = !funct3[2] & (mem_MSB);    // LW,LBU,LHU
+
+    wire [31:0] LOAD_data = mem_byteAccess ? {{24{LOAD_sign}},     LOAD_byte} :
+                        mem_halfwordAccess ? {{16{LOAD_sign}}, LOAD_halfword} :
+                                             mem_rdata ;
+
+
+    // RISCV decoder
+    // https://github.com/jameslzhu/riscv-card/blob/master/riscv-card.pdf
+    //
     // Instruction types
     wire isALUreg  =  (instr[6:0] == 7'b0110011);   // rd <- rs1 OP rs2   
     wire isALUimm  =  (instr[6:0] == 7'b0010011);   // rd <- rs1 OP Iimm
