@@ -35,35 +35,18 @@ module Memory (
 
     // code
     `include "riscv_assembly.v"
-    integer L0_   = 12;
-    integer L1_   = 40;
-    integer wait_ = 64;   
-    integer L2_   = 72;
+    integer L1_   = 8;
+    integer wait_ = 28;   
+    integer L2_   = 36;
     
     initial begin
-
+        LI(gp,32'h400000); 
         LI(a0,0);
-    // Copy 16 bytes from adress 400
-    // to address 800
-        LI(s1,16);      
-        LI(s0,0);         
-    Label(L0_); 
-        LB(a1,s0,400);
-        SB(a1,s0,800);       
-        //CALL(LabelRef(wait_));
-        NOP();
-        NOP();
-        ADDI(s0,s0,1); 
-        BNE(s0,s1, LabelRef(L0_));
-
-    // Read 16 bytes from adress 800
-        LI(s0,0);
     Label(L1_);
-        LB(a0,s0,800); // a0 (=x10) is plugged to the LEDs
+        SW(a0,gp,4);
         CALL(LabelRef(wait_));
-        ADDI(s0,s0,1); 
-        BNE(s0,s1, LabelRef(L1_));
-        EBREAK();
+        ADDI(a0,a0,1);
+        J(LabelRef(L1_));
         
     Label(wait_);
         LI(t0,1);
@@ -93,8 +76,7 @@ module Processor (
     input      [31:0]   mem_rdata, 
     output 	            mem_rstrb,
     output     [31:0]   mem_wdata, 
-    output     [3:0]	mem_wmask,
-    output reg [31:0]   x10_s		  
+    output     [3:0]	mem_wmask	  
 );
 
 
@@ -119,9 +101,6 @@ module Processor (
                 RegisterBank[rdId] <= writeBackData;
                 
                 // For displaying what happens.
-                if(rdId == 10) begin
-                    x10_s <= writeBackData;
-                end
                 // `ifdef BENCH	 
                 //     if(state == EXECUTE ^ isLoad) begin
                 //         $display("x%0d <= %b : d%d",rdId,writeBackData,writeBackData);
@@ -374,7 +353,7 @@ endmodule
 module SOC (
         input  CLK,        
         input  RESET,      
-        output [4:0] LEDS, 
+        output reg [4:0] LEDS, 
         input  RXD,        
         output TXD  
     );
@@ -382,33 +361,48 @@ module SOC (
     Clockworks CW(.clock_in(CLK), .clock_out(clk));
     wire clk;
 
+    wire [31:0] RAM_rdata;
+    wire [29:0] mem_wordaddr = mem_addr[31:2];
+    wire isIO  = mem_addr[22];
+    wire isRAM = !isIO;
+    wire mem_wstrb = |mem_wmask;
+
+    wire [31:0] mem_addr;
+    wire [31:0] mem_rdata;
+    wire mem_rstrb;
+    wire [31:0] mem_wdata;
+    wire [3:0]  mem_wmask;
+    
+    assign mem_rdata = isRAM ? RAM_rdata : 0 ;
+
     Memory RAM(
       .clk(clk),
       .mem_addr(mem_addr),
-      .mem_rdata(mem_rdata),
-      .mem_rstrb(mem_rstrb),
+        .mem_rdata(RAM_rdata),
+        .mem_rstrb(isRAM & mem_rstrb),
       .mem_wdata(mem_wdata),
-      .mem_wmask(mem_wmask)
+        .mem_wmask({4{isRAM}}&mem_wmask)
     );
-    wire [31:0] mem_addr;
-    wire [31:0] mem_rdata;
-    wire [31:0] mem_wdata;
-    wire [3:0]	mem_wmask;
-    wire mem_rstrb;
 
     Processor CPU(
     .clk(clk),
-    .resetn(RESET),
+        .resetn(RESET),		 
     .mem_addr(mem_addr), 
     .mem_rdata(mem_rdata), 
     .mem_rstrb(mem_rstrb),
     .mem_wdata(mem_wdata),
-    .mem_wmask(mem_wmask),
-    .x10_s(x10)
+        .mem_wmask(mem_wmask)
     );
-    wire [31:0] x10;
 
-    assign LEDS = x10[4:0];
+    //assign LEDS = x10[4:0];
     assign TXD  = 1'b0; // not used for now
+
+
+    localparam IO_LEDS_bit = 0;  
+    always @(posedge clk) begin
+        if(isIO & mem_wstrb & mem_wordaddr[IO_LEDS_bit]) begin
+	        LEDS <= mem_wdata;
+        end
+    end
 
 endmodule
