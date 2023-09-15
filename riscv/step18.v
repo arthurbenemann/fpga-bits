@@ -49,29 +49,31 @@ module Memory (
 
     // code
  `include "riscv_assembly.v"    
-    `define terminal_size   50
+    `define terminal_size_x 400
+    `define terminal_size_y 180
     `define fixed_point_bit 10
     `define fp_mul (1 << `fixed_point_bit) // 1024
     `define xmin (-2*`fp_mul)   //2048
     `define xmax ( 2*`fp_mul)
     `define ymin (-2*`fp_mul)
     `define ymax ( 2*`fp_mul)	
-    `define dx ((`xmax-`xmin)/`terminal_size) 
-    `define dy ((`ymax-`ymin)/`terminal_size)
+    `define dx ((`xmax-`xmin)/`terminal_size_x) 
+    `define dy ((`ymax-`ymin)/`terminal_size_y)
     `define norm_max (4 << `fixed_point_bit) // 
 
 
-    integer    loop_y_      = 16;
-    integer    loop_x_      = 24;
-    integer    loop_Z_      = 36;
-    integer    exit_Z_      = 128;
-    integer    wait_        = 200;
-    integer    wait_L0_     = 208;
-    integer    putc_        = 220; 
-    integer    putc_L0_     = 228;
-    integer    mulsi3_      = 244;
-    integer    mulsi3_L0_   = 252;
-    integer    mulsi3_L1_   = 264;
+    integer    loop_y_      = 20;
+    integer    loop_x_      = 28;
+    integer    loop_Z_      = 40;
+    integer    exit_Z_      = 132;
+    integer    print_pixel_ = 144;
+    integer    wait_        = 216;
+    integer    wait_L0_     = 224;
+    integer    putc_        = 236; 
+    integer    putc_L0_     = 244;
+    integer    mulsi3_      = 260;
+    integer    mulsi3_L0_   = 268;
+    integer    mulsi3_L1_   = 280;
     
 
    
@@ -79,7 +81,8 @@ module Memory (
         LI(gp,32'h400000); // IO page
         LI(s1,0);               // Y char
         LI(s3,`xmin);           // Y coor
-        LI(s11,`terminal_size); // Size
+        LI(s11,`terminal_size_x); // Size_x
+        LI(t4,`terminal_size_y); // Size_y
         
     Label(loop_y_);
         LI(s0,0);               // X char
@@ -89,7 +92,7 @@ module Memory (
         MV(s4,s2); // Z <- C
         MV(s5,s3);
 
-        LI(s10,9); // iter <- 9
+        LI(s10,14); // iter <- 14
 
     Label(loop_Z_);
         MV(a0,s4); // Zrr  <- (Zr*Zr) >> fixed_point_bit
@@ -116,7 +119,11 @@ module Memory (
         BNEZ(s10,LabelRef(loop_Z_));
         
     Label(exit_Z_);
-        LI(a0,"0");
+        LI(a0,1);
+        BNE(s10,a0,LabelRef(print_pixel_));
+        ADDI(s10, s10,"X"-"!");   // In case of "!" switch to X for better viz 
+    Label(print_pixel_);
+        LI(a0," ");
         ADD(a0,a0,s10);
         CALL(LabelRef(putc_));
         NOP();
@@ -132,7 +139,7 @@ module Memory (
 
         ADDI(s1,s1,1);
         ADDI(s3,s3,`dy);
-        BNE(s1,s11,LabelRef(loop_y_));
+        BNE(s1,t4,LabelRef(loop_y_));
 
         EBREAK();
 
