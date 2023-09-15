@@ -49,7 +49,7 @@ module Memory (
 
     // code
  `include "riscv_assembly.v"    
-    `define terminal_size   30
+    `define terminal_size   50
     `define fixed_point_bit 10
     `define fp_mul (1 << `fixed_point_bit) // 1024
     `define xmin (-2*`fp_mul)   //2048
@@ -73,7 +73,6 @@ module Memory (
     integer    mulsi3_L0_   = 252;
     integer    mulsi3_L1_   = 264;
     
-    integer    colormap_    = 280;
 
    
     initial begin      
@@ -117,18 +116,18 @@ module Memory (
         BNEZ(s10,LabelRef(loop_Z_));
         
     Label(exit_Z_);
-        LI(a0,colormap_);
+        LI(a0,"0");
         ADD(a0,a0,s10);
-        LBU(a0,a0,0);
         CALL(LabelRef(putc_));
+        NOP();
 
         ADDI(s0,s0,1);
         ADDI(s2,s2,`dx);
         BNE(s0,s11,LabelRef(loop_x_));
 
-        LI(a0," ");
+        LI(a0,10);
         CALL(LabelRef(putc_));
-        LI(a0,"\n");
+        LI(a0,13);
         CALL(LabelRef(putc_));      
 
         ADDI(s1,s1,1);
@@ -173,13 +172,6 @@ module Memory (
         SLLI(a2,a2,1);
         BNEZ(a1,LabelRef(mulsi3_L0_));
         RET();
-
-    Label(colormap_);
-        DATAB(" ",".",",",":");
-        DATAB(";","o","x","%");
-        DATAB("#","@", 0 , 0 );            
-        endASM();
-
         
         endASM();
     end        
