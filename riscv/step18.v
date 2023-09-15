@@ -48,49 +48,94 @@ module Memory (
 
 
     // code
- `include "riscv_assembly.v"
-   integer    L0_      = 12;
-   integer    L1_      = 20;
-   integer    L2_      = 52;      
-   integer    wait_    = 104;
-   integer    wait_L0_ = 112;
-   integer    putc_    = 124; 
-   integer    putc_L0_ = 132;
+ `include "riscv_assembly.v"    
+    `define terminal_size   30
+    `define fixed_point_bit 10
+    `define fp_mul (1 << `fixed_point_bit) // 1024
+    `define xmin (-2*`fp_mul)   //2048
+    `define xmax ( 2*`fp_mul)
+    `define ymin (-2*`fp_mul)
+    `define ymax ( 2*`fp_mul)	
+    `define dx ((`xmax-`xmin)/`terminal_size) 
+    `define dy ((`ymax-`ymin)/`terminal_size)
+    `define norm_max (4 << `fixed_point_bit) // 
+
+
+    integer    loop_y_      = 16;
+    integer    loop_x_      = 24;
+    integer    loop_Z_      = 36;
+    integer    exit_Z_      = 128;
+    integer    wait_        = 200;
+    integer    wait_L0_     = 208;
+    integer    putc_        = 220; 
+    integer    putc_L0_     = 228;
+    integer    mulsi3_      = 244;
+    integer    mulsi3_L0_   = 252;
+    integer    mulsi3_L1_   = 264;
+    
+    integer    colormap_    = 280;
+
    
-    initial begin
-        LI(sp,32'h1800);   // End of RAM, 6kB
+    initial begin      
         LI(gp,32'h400000); // IO page
+        LI(s1,0);               // Y char
+        LI(s3,`xmin);           // Y coor
+        LI(s11,`terminal_size); // Size
+        
+    Label(loop_y_);
+        LI(s0,0);               // X char
+        LI(s2,`ymin);           // X coor
 
-    Label(L0_);
+    Label(loop_x_);
+        MV(s4,s2); // Z <- C
+        MV(s5,s3);
 
-        // Count from 0 to 15 on the LEDs      
-        LI(s0,16); // upper bound of loop
-        LI(a0,0);
-    Label(L1_);
-        SW(a0,gp,IO_BIT_TO_OFFSET(IO_LEDS_bit));
-        CALL(LabelRef(wait_));
-        ADDI(a0,a0,1);
-        BNE(a0,s0,LabelRef(L1_));
+        LI(s10,9); // iter <- 9
 
-        // Send abcdef...xyz to the UART
-        LI(s0,26); // upper bound of loop     
-        LI(a0,"a");
-        LI(s1,0);
-    Label(L2_);
+    Label(loop_Z_);
+        MV(a0,s4); // Zrr  <- (Zr*Zr) >> fixed_point_bit
+        MV(a1,s4);
+        CALL(LabelRef(mulsi3_));
+        SRLI(s6,a0,`fixed_point_bit);
+        MV(a0,s4); // Zri <- (Zr*Zi) >> (fixed_point_bit-1)
+        MV(a1,s5);
+        CALL(LabelRef(mulsi3_));
+        SRAI(s7,a0,`fixed_point_bit-1);
+        MV(a0,s5); // Zii <- (Zi*Zi) >> (fixed_point_bit)
+        MV(a1,s5);
+        CALL(LabelRef(mulsi3_));
+        SRLI(s8,a0,`fixed_point_bit);
+        SUB(s4,s6,s8); // Zr <- Zrr - Zii + Cr  
+        ADD(s4,s4,s2);
+        ADD(s5,s7,s3); // Zi <- 2Zri + Cr
+
+        ADD(s6,s6,s8); // if norm > norm max, exit loop
+        LI(s7,`norm_max);
+        BGT(s6,s7,LabelRef(exit_Z_));
+        
+        ADDI(s10,s10,-1);  // iter--, loop if non-zero
+        BNEZ(s10,LabelRef(loop_Z_));
+        
+    Label(exit_Z_);
+        LI(a0,colormap_);
+        ADD(a0,a0,s10);
+        LBU(a0,a0,0);
         CALL(LabelRef(putc_));
-        ADDI(a0,a0,1);
+
+        ADDI(s0,s0,1);
+        ADDI(s2,s2,`dx);
+        BNE(s0,s11,LabelRef(loop_x_));
+
+        LI(a0," ");
+        CALL(LabelRef(putc_));
+        LI(a0,"\n");
+        CALL(LabelRef(putc_));      
+
         ADDI(s1,s1,1);
-        BNE(s1,s0,LabelRef(L2_));
+        ADDI(s3,s3,`dy);
+        BNE(s1,s11,LabelRef(loop_y_));
 
-        // CR;LF
-        LI(a0,13);
-        CALL(LabelRef(putc_));
-        LI(a0,10);
-        CALL(LabelRef(putc_));
-        
-        J(LabelRef(L0_));
-        
-        EBREAK(); 
+        EBREAK();
 
     Label(wait_);
         LI(t0,1);
@@ -111,6 +156,30 @@ module Memory (
         AND(t1,t1,t0);
         BNEZ(t1,LabelRef(putc_L0_));
         RET();
+
+
+    // Mutiplication routine (maybe could use the one from step 14? too slow)
+    // Input in a0 and a1
+    // Result in a0
+    Label(mulsi3_);
+        MV(a2,a0);
+        LI(a0,0);
+    Label(mulsi3_L0_); 
+        ANDI(a3,a1,1);
+        BEQZ(a3,LabelRef(mulsi3_L1_)); 
+        ADD(a0,a0,a2);
+    Label(mulsi3_L1_);
+        SRLI(a1,a1,1);
+        SLLI(a2,a2,1);
+        BNEZ(a1,LabelRef(mulsi3_L0_));
+        RET();
+
+    Label(colormap_);
+        DATAB(" ",".",",",":");
+        DATAB(";","o","x","%");
+        DATAB("#","@", 0 , 0 );            
+        endASM();
+
         
         endASM();
     end        
