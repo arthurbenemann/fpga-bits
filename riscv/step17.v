@@ -1,4 +1,5 @@
 `include "clockworks.v"
+`include "emitter_uart.v"
 
 
 module Memory (
@@ -32,40 +33,87 @@ module Memory (
         localparam slow_bit=12+4;
     `endif
 
+    // Memory-mapped IO in IO page, 1-hot addressing in word address.   
+    localparam IO_LEDS_bit      = 0;  // W five leds
+    localparam IO_UART_DAT_bit  = 1;        // W data to send (8 bits) 
+    localparam IO_UART_CNTL_bit = 2;     // R status. bit 9: busy sending
+
+    // Converts an IO_xxx_bit constant into an offset in IO page.
+    function [31:0] IO_BIT_TO_OFFSET;
+        input [31:0] bit;
+        begin
+        IO_BIT_TO_OFFSET = 1 << (bit + 2);
+        end
+    endfunction
+
 
     // code
-    `include "riscv_assembly.v"
-    integer L1_   = 8;
-    integer wait_ = 28;   
-    integer L2_   = 36;
-    
+ `include "riscv_assembly.v"
+   integer    L0_      = 12;
+   integer    L1_      = 20;
+   integer    L2_      = 52;      
+   integer    wait_    = 104;
+   integer    wait_L0_ = 112;
+   integer    putc_    = 124; 
+   integer    putc_L0_ = 132;
+   
     initial begin
-        LI(gp,32'h400000); 
+        LI(sp,32'h1800);   // End of RAM, 6kB
+        LI(gp,32'h400000); // IO page
+
+    Label(L0_);
+
+        // Count from 0 to 15 on the LEDs      
+        LI(s0,16); // upper bound of loop
         LI(a0,0);
     Label(L1_);
-        SW(a0,gp,4);
+        SW(a0,gp,IO_BIT_TO_OFFSET(IO_LEDS_bit));
         CALL(LabelRef(wait_));
         ADDI(a0,a0,1);
-        J(LabelRef(L1_));
+        BNE(a0,s0,LabelRef(L1_));
+
+        // Send abcdef...xyz to the UART
+        LI(s0,26); // upper bound of loop     
+        LI(a0,"a");
+        LI(s1,0);
+    Label(L2_);
+        CALL(LabelRef(putc_));
+        ADDI(a0,a0,1);
+        ADDI(s1,s1,1);
+        BNE(s1,s0,LabelRef(L2_));
+
+        // CR;LF
+        LI(a0,13);
+        CALL(LabelRef(putc_));
+        LI(a0,10);
+        CALL(LabelRef(putc_));
         
+        J(LabelRef(L0_));
+        
+        EBREAK(); 
+
     Label(wait_);
         LI(t0,1);
-        SLLI(t0,t0,slow_bit);
-    Label(L2_);
+        SLLI(t0,t0,12);
+    Label(wait_L0_);
         ADDI(t0,t0,-1);
-        BNEZ(t0,LabelRef(L2_));
+        BNEZ(t0,LabelRef(wait_L0_));
         RET();
 
+    Label(putc_);
+        // Send character to UART
+        SW(a0,gp,IO_BIT_TO_OFFSET(IO_UART_DAT_bit));
+        // Read UART status, and loop until bit 9 (busy sending)
+        // is zero.
+        LI(t0,1<<9);
+    Label(putc_L0_);
+        LW(t1,gp,IO_BIT_TO_OFFSET(IO_UART_CNTL_bit));     
+        AND(t1,t1,t0);
+        BNEZ(t1,LabelRef(putc_L0_));
+        RET();
+        
         endASM();
-
-        // Note: index 100 (word address)
-        //     corresponds to 
-        // address 400 (byte address)
-        MEM[100] = {8'h4, 8'h3, 8'h2, 8'h1};
-        MEM[101] = {8'h8, 8'h7, 8'h6, 8'h5};
-        MEM[102] = {8'hc, 8'hb, 8'ha, 8'h9};
-        MEM[103] = {8'hf0, 8'hf, 8'he, 8'hd};            
-    end
+    end        
 
 endmodule
 
@@ -325,7 +373,7 @@ module Processor (
         always @(posedge clk) begin
             $display("PC=%0d takeBranch=%d nextPC=%d ",PC, takeBranch, nextPC);
             if(state == FETCH_INSTR) begin
-                $display("FETCH_INSTR: instr=%b", MEM[PC[31:2]]);
+                //$display("FETCH_INSTR: instr=%b", MEM[PC[31:2]]);
             end
             if(state == FETCH_REGS) begin
                 case (1'b1)
@@ -354,11 +402,15 @@ module SOC (
         input  CLK,        
         input  RESET,      
         output reg [4:0] LEDS, 
-        input  RXD,        
+        input  RXD,     
+        output P1A1,
         output TXD  
     );
+
+    assign P1A1 = TXD;
     
-    Clockworks CW(.clock_in(CLK), .clock_out(clk));
+    Clockworks CW(.clock_in(CLK), .clock_out(clk)); // Fin 12.5Mhz,  Fout_mean 705891	Hz
+
     wire clk;
 
     wire [31:0] RAM_rdata;
@@ -373,7 +425,12 @@ module SOC (
     wire [31:0] mem_wdata;
     wire [3:0]  mem_wmask;
     
-    assign mem_rdata = isRAM ? RAM_rdata : 0 ;
+
+    wire [31:0] IO_rdata = 
+        mem_wordaddr[IO_UART_CNTL_bit] ? { 22'b0, !uart_ready, 9'b0}
+	                                      : 32'b0;
+    assign mem_rdata = isRAM ? RAM_rdata : IO_rdata ;
+
 
     Memory RAM(
       .clk(clk),
@@ -395,14 +452,43 @@ module SOC (
     );
 
     //assign LEDS = x10[4:0];
-    assign TXD  = 1'b0; // not used for now
+    //assign TXD  = 1'b0; // not used for now
 
-
+    // Memory-mapped IO in IO page, 1-hot addressing in word address.
     localparam IO_LEDS_bit = 0;  
+    localparam IO_UART_DAT_bit  = 1;        // W data to send (8 bits) 
+    localparam IO_UART_CNTL_bit = 2;     // R status. bit 9: busy sending
+
+
     always @(posedge clk) begin
         if(isIO & mem_wstrb & mem_wordaddr[IO_LEDS_bit]) begin
 	        LEDS <= mem_wdata;
         end
     end
+
+    wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
+    wire uart_ready;
+
+    corescore_emitter_uart #(
+        .clk_freq_hz(615000),
+        .baud_rate(56000)			    
+    ) UART(
+        .i_clk(clk),
+        .i_rst(RESET),
+        .i_data(mem_wdata[7:0]),
+        .i_valid(uart_valid),
+        .o_ready(uart_ready),
+        .o_uart_tx(TXD)      			       
+    );
+
+    // DEBUG terminal
+    `ifdef BENCH
+    always @(posedge clk) begin
+        if(uart_valid) begin
+        $write("%c", mem_wdata[7:0] );
+        $fflush(32'h8000_0001);
+        end
+    end
+    `endif   
 
 endmodule
