@@ -1,4 +1,4 @@
-PROJ = step18
+PROJ = step20
 
 all: $(PROJ).rpt $(PROJ).bin
 
@@ -39,6 +39,11 @@ sudo-prog: $(PROJ).bin
 sim: $(PROJ).out bench_iverilog.v
 	vvp -n $<
 
+assemble:  #hacky, needs to be cleanned up
+	riscv64-unknown-elf-gcc -O -march=rv32i -mabi=ilp32 assemble.s -o assemble.o -nostartfiles
+	riscv64-unknown-elf-objcopy -O binary assemble.o assemble.bin
+	hexdump -e '"%08x\n"' assemble.bin > assemble.hexdump
+
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
 
@@ -49,4 +54,5 @@ clean:
 	rm -f $(PROJ).out
 
 .SECONDARY:
-.PHONY: all prog clean sim
+.PHONY: all prog clean sim assemble
+
