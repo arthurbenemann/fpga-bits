@@ -6,7 +6,7 @@ module Clockworks(
 
 	reg [2:0] clkdiv = 0;
 
-	assign clock_out = clkdiv[0];
+	assign clock_out = clock_in;
 
 	// Synchronous logic
 	always @(posedge clock_in) begin
