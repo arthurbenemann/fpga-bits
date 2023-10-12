@@ -22,21 +22,28 @@ module corescore_emitter_uart
    assign o_uart_tx = data[0] | !(|data);
 
    always @(posedge i_clk) begin
-      if (cnt[WIDTH] & !(|data)) begin
-	 o_ready <= 1'b1;
-      end else if (i_valid & o_ready) begin
-	 o_ready <= 1'b0;
+      if (!i_rst) begin
+            o_ready <= 1'b0;
+            cnt <= {WIDTH{1'b0}};
+            data <= 9'b0;
+      end else begin
+            if (cnt[WIDTH] & !(|data)) begin
+                  o_ready <= 1'b1;
+            end else if (i_valid & o_ready) begin
+                  o_ready <= 1'b0;
+            end
+
+            if (o_ready | cnt[WIDTH])
+                  cnt <= {1'b0,START_VALUE[WIDTH-1:0]};
+            else
+                  cnt <= cnt-1;
+            
+            if (cnt[WIDTH])
+                  data <= {1'b0, data[9:1]};
+            else if (i_valid & o_ready)
+                  data <= {1'b1, i_data, 1'b0};
       end
 
-      if (o_ready | cnt[WIDTH])
-	cnt <= {1'b0,START_VALUE[WIDTH-1:0]};
-      else
-	cnt <= cnt-1;
-      
-      if (cnt[WIDTH])
-	data <= {1'b0, data[9:1]};
-      else if (i_valid & o_ready)
-	data <= {1'b1, i_data, 1'b0};
    end
 
 endmodule
