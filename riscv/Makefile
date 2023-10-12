@@ -49,7 +49,7 @@ compile:
 	riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -fno-pic -fno-stack-protector -w -Wl,--no-relax -c hello.c 
 	riscv64-unknown-elf-ld -T bram.ld -m elf32lriscv -nostdlib -norelax print.o putchar.o hello.o /opt/fomu-toolchain-Linux/lib/gcc/riscv64-unknown-elf/8.3.0/rv32i/ilp32/libgcc.a -o b.bram.elf
 	riscv64-unknown-elf-objcopy -O binary b.bram.elf b.bin
-	hexdump -e '"%08x\n"' b.bin > assemble.hexdump
+	hexdump --no-squeezing -e '"%08x\n"' b.bin > assemble.hexdump
 
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
