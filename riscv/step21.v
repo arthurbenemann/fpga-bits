@@ -11,7 +11,7 @@ module Memory (
     input      [3:0]	mem_wmask  // data write mask 1 bit per byte in word
     
 );
-    reg [31:0] MEM [0:255];     // RAM
+    reg [31:0] MEM [0:1535]; // 1536 4-bytes words = 6 Kb of RAM in total
 
     wire [29:0] word_addr = mem_addr[31:2];
 

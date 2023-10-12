@@ -123,3 +123,4 @@ isim.log
 # compile
 *.hexdump
 *.o
+*.elf

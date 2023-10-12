@@ -1,6 +1,6 @@
 MEMORY
 {
-   BRAM (RWX) : ORIGIN = 0x0000, LENGTH = 0x03FC  /* 1020B / 255 Words RAM */
+   BRAM (RWX) : ORIGIN = 0x0000, LENGTH = 0x1800  /* 6kB RAM */
 }
 SECTIONS
 {
