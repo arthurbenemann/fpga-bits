@@ -1,4 +1,4 @@
-PROJ = step21
+PROJ = riscv
 
 all: $(PROJ).rpt $(PROJ).bin
 
