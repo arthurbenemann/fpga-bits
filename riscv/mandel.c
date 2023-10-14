@@ -3,9 +3,13 @@
 */
 
 #include <stdio.h>
+#include <stdint.h>
 
 #define IO_BASE 0x400000
 #define IO_LEDS 4
+#define IO_UART_DAT   8
+#define IO_UART_CNTL  16
+#define IO_COUNTER 32
 
 #define IO_IN(port) *(volatile uint32_t *)(IO_BASE + port)
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
@@ -53,7 +57,9 @@ const char *colormap[21] = {
 
 int main()
 {
-    printf("\nstart\n");
+    
+
+    uint32_t start,end;
 
     for (;;)
     {
@@ -63,6 +69,7 @@ int main()
         int Ci = ymin;
         for (int Y = 0; Y < H; ++Y)
         {
+            start = IO_IN(IO_COUNTER);
             int Cr = xmin;
             for (int X = 0; X < W; ++X)
             {
@@ -88,6 +95,10 @@ int main()
                 Cr += dx;
             }
             Ci += dy;
+
+
+            end = IO_IN(IO_COUNTER);
+            printf("%d", (end-start)>>14); // cycles /16 /1024 ~= time in ms
             printf("\033[49m\n");
             last_color = -1;
         }

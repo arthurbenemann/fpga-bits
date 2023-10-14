@@ -336,6 +336,20 @@ module Processor (
 
 endmodule
 
+module free_cnt(input clk, input resetn, output [31:0] cnt);    
+
+    reg [31:0] counter = 0;
+    assign cnt = counter;
+
+    always @(posedge clk, negedge resetn) begin
+        if(!resetn) begin
+            counter <= 0;
+        end else begin
+            counter <= counter+1;
+        end
+    end
+endmodule
+
 
 module SOC (
         input  CLK,        
@@ -363,11 +377,13 @@ module SOC (
     wire mem_rstrb;
     wire [31:0] mem_wdata;
     wire [3:0]  mem_wmask;
+    wire [31:0] counter;
     
 
     wire [31:0] IO_rdata = 
-        mem_wordaddr[IO_UART_CNTL_bit] ? { 22'b0, !uart_ready, 9'b0}
-	                                      : 32'b0;
+        mem_wordaddr[IO_UART_CNTL_bit]  ? { 22'b0, !uart_ready, 9'b0} :
+        mem_wordaddr[IO_COUNTER_bit]    ? counter  
+                                        : 32'b0;
     assign mem_rdata = isRAM ? RAM_rdata : IO_rdata ;
 
 
@@ -390,13 +406,11 @@ module SOC (
         .mem_wmask(mem_wmask)
     );
 
-    //assign LEDS = x10[4:0];
-    //assign TXD  = 1'b0; // not used for now
-
     // Memory-mapped IO in IO page, 1-hot addressing in word address.
     localparam IO_LEDS_bit = 0;  
     localparam IO_UART_DAT_bit  = 1;        // W data to send (8 bits) 
     localparam IO_UART_CNTL_bit = 2;     // R status. bit 9: busy sending
+    localparam IO_COUNTER_bit = 3;  
 
 
     always @(posedge clk) begin
@@ -418,6 +432,9 @@ module SOC (
         .o_ready(uart_ready),
         .o_uart_tx(TXD)      			       
     );
+
+    // Free running counter at Fin
+    free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));
 
     // DEBUG terminal
     `ifdef BENCH
