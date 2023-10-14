@@ -348,8 +348,8 @@ module SOC (
 
     assign P1A1 = TXD;
     
-    Clockworks CW(.clock_in(CLK), .clock_out(clk)); // Fin 12.5Mhz,  Fout_mean 705891	Hz
-
+    Clockworks CW(.clock_in(CLK), .clock_out(clk),.reset_ext(RESET),.resetn(resetn)); // Fin 12.5Mhz,  Fout 12.5Mhz, delayed reset and POR
+    wire resetn;
     wire clk;
 
     wire [31:0] RAM_rdata;
@@ -382,7 +382,7 @@ module SOC (
 
     Processor CPU(
     .clk(clk),
-        .resetn(RESET),		 
+        .resetn(resetn),		 
     .mem_addr(mem_addr), 
     .mem_rdata(mem_rdata), 
     .mem_rstrb(mem_rstrb),
@@ -413,7 +413,7 @@ module SOC (
         .baud_rate(56000)			    
     ) UART(
         .i_clk(clk),
-        .i_rst(RESET),
+        .i_rst(resetn),
         .i_data(mem_wdata[7:0]),
         .i_valid(uart_valid),
         .o_ready(uart_ready),
