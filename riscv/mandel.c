@@ -64,12 +64,12 @@ int main()
     for (;;)
     {
 
+        start = IO_IN(IO_COUNTER);
         int last_color = -1;
         printf("\033[H");
         int Ci = ymin;
         for (int Y = 0; Y < H; ++Y)
         {
-            start = IO_IN(IO_COUNTER);
             int Cr = xmin;
             for (int X = 0; X < W; ++X)
             {
@@ -96,11 +96,10 @@ int main()
             }
             Ci += dy;
 
-
-            end = IO_IN(IO_COUNTER);
-            printf("%d", (end-start)>>14); // cycles /16 /1024 ~= time in ms
             printf("\033[49m\n");
             last_color = -1;
         }
+        end = IO_IN(IO_COUNTER);
+        printf("%dms, ", (end-start)>>14); // cycles /16 /1024 ~= time in ms
     }
 }
