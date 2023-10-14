@@ -17,16 +17,6 @@
 #define W 300
 #define H 200
 
-#define mandel_shift 10
-#define mandel_mul (1 << mandel_shift)
-#define xmin -2 * mandel_mul
-#define ymax 2 * mandel_mul
-#define ymin -2 * mandel_mul
-#define xmax 2 * mandel_mul/2
-#define dx (xmax - xmin) / H
-#define dy (ymax - ymin) / H
-#define norm_max (4 << mandel_shift)
-
 #define ANSIRGB(R, G, B) "\033[48;2;" #R ";" #G ";" #B "m  "
 
 const char *colormap[21] = {
@@ -55,16 +45,25 @@ const char *colormap[21] = {
     ANSIRGB(  0,   0,   0)
     };
 
+#define mandel_shift 10
+#define mandel_mul (1 << mandel_shift)
+#define norm_max (4 << mandel_shift)
+
 int main()
 {
-    
+    uint32_t start,end; // timing variables
 
-    uint32_t start,end;
-
+    int xmin= -2 * mandel_mul;
+    int ymin= -2 * mandel_mul;
+    int xmax=  1 * mandel_mul;
+    int ymax=  2 * mandel_mul;
     for (;;)
     {
-
+        int dx  = (xmax - xmin) / H;
+        int dy  = (ymax - ymin) / H;
+        
         start = IO_IN(IO_COUNTER);
+
         int last_color = -1;
         printf("\033[H");
         int Ci = ymin;
@@ -100,6 +99,10 @@ int main()
             last_color = -1;
         }
         end = IO_IN(IO_COUNTER);
-        printf("%dms, ", (end-start)>>14); // cycles /16 /1024 ~= time in ms
+        printf("%dms", (end-start)>>14); // cycles /16 /1024 ~= time in ms
+
+        xmax = xmin + (xmax-xmin)/2;
+        ymax = ymax/2;
+        ymin = -ymax;
     }
 }
