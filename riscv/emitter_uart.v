@@ -1,7 +1,6 @@
 module corescore_emitter_uart
   #(
-    parameter clk_freq_hz = 0,
-    parameter baud_rate = 57600)
+    parameter clk_divider=12)
   (
    input wire 	    i_clk,
    input wire 	    i_rst,
@@ -11,7 +10,7 @@ module corescore_emitter_uart
    output wire 	    o_uart_tx
 );
 
-   localparam START_VALUE = clk_freq_hz/baud_rate;
+   localparam START_VALUE = clk_divider-2;
    
    localparam WIDTH = $clog2(START_VALUE);
    

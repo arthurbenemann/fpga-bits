@@ -409,8 +409,7 @@ module SOC (
     wire uart_ready;
 
     corescore_emitter_uart #(
-        .clk_freq_hz(615000),
-        .baud_rate(56000)			    
+        .clk_divider(8)     // Fin=16Mhz, baud =16Mhz/8 = 2Mbaud
     ) UART(
         .i_clk(clk),
         .i_rst(resetn),
