@@ -350,6 +350,47 @@ module free_cnt(input clk, input resetn, output [31:0] cnt);
     end
 endmodule
 
+module Mandelbrot #(parameter mandel_shift=10, max_it=20)(input clk, input resetn);    
+
+    // Inputs, to be moved to function call
+    reg signed [31:0] Cr=-1<<<mandel_shift, Ci=0<<(mandel_shift-3);
+    reg valid = 1;
+    
+    // Local registers
+    reg signed [31:0] Zr = 0, Zi = 0;
+    reg [7:0] iteration = 0;
+    reg ready = 1;
+
+    // Intermediate results
+    wire signed [31:0] Zrr, Zii, Zri;
+    assign Zrr = (Zr*Zr) >>> mandel_shift;
+    assign Zii = (Zi*Zi) >>> mandel_shift;
+    assign Zri = (Zr*Zi) >>> (mandel_shift-1);
+    wire out_of_set = (Zrr + Zii) > (4<<mandel_shift);
+
+    always @(posedge clk) begin
+        //$display("valid %d, ready %d, it %d",valid,ready,iteration);
+        if(ready) begin   
+            if (valid) begin
+                Zr=Cr;Zi=Ci; 
+                iteration<=max_it;
+                ready<=0;
+                $display("start"); valid<=0; // test on debug only
+            end 
+        end else begin
+            if(!out_of_set & iteration>0) begin
+                Zr <= Zrr - Zii + Cr;
+                Zi <= Zri + Ci;
+                iteration <= iteration-1;
+                //$display("Zr %.2f \tZi %.2f \tCr %.2f \tCi %.2f\t out_of_set %d", Zr/1024.0,Zi/1024.0,Cr/1024.0,Ci/1024.0,out_of_set);
+            end else begin
+                ready <=1;
+                //$display("remaining iterations %d", iteration);
+            end
+        end        
+    end
+endmodule
+
 
 module SOC (
         input  CLK,        
@@ -365,6 +406,8 @@ module SOC (
     Clockworks CW(.clock_in(CLK), .clock_out(clk),.reset_ext(RESET),.resetn(resetn)); // Fin 12.5Mhz,  Fout 12.5Mhz, delayed reset and POR
     wire resetn;
     wire clk;
+
+    Mandelbrot mb(.clk(clk), .resetn(resetn));
 
     wire [31:0] RAM_rdata;
     wire [29:0] mem_wordaddr = mem_addr[31:2];
