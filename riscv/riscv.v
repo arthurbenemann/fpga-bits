@@ -350,7 +350,7 @@ module free_cnt(input clk, input resetn, output [31:0] cnt);
     end
 endmodule
 
-module Mandelbrot #(parameter mandel_shift=10, max_it=100)
+module Mandelbrot #(parameter mandel_shift=10, max_it=31)
                     (input clk, input resetn, input valid, output reg ready,
                      input signed [31:0] Cr, input signed [31:0] Ci, output reg [7:0] iteration);    
     

@@ -22,30 +22,44 @@
 
 #define ANSIRGB(R, G, B) "\033[48;2;" #R ";" #G ";" #B "m  "
 
-const char *colormap[21] = {
-    ANSIRGB(  0,   0,   0),
-    ANSIRGB(250, 250, 250),
-    ANSIRGB(220, 200, 240),
-    ANSIRGB(200, 180, 230),
-    ANSIRGB(180, 160, 220),
-    ANSIRGB(160, 140, 210),
-    ANSIRGB(140, 120, 200),
+const char *colormap[32] = {
+    ANSIRGB(  0,   0,   0),     // Black -1
 
-    ANSIRGB(100, 100, 190),
-    ANSIRGB( 80,  80, 180),
-    ANSIRGB( 60,  60, 170),
-    ANSIRGB( 40,  40, 160),
-    ANSIRGB( 30,  30, 150),
-    ANSIRGB( 20,  20, 140),
-    ANSIRGB( 10,  10, 130),
+    ANSIRGB(255, 255, 255),     // White - 6
+    ANSIRGB(240, 200, 200),
+    ANSIRGB(240, 160, 160),
+    ANSIRGB(240, 120, 120),
+    ANSIRGB(240,  80,  80),
+    ANSIRGB(240,  40,  40),
 
+    ANSIRGB(240,   0,   0),     // Red -12
+    ANSIRGB(220,   0,  20),
+    ANSIRGB(200,   0,  40),
+    ANSIRGB(180,   0,  60),
+    ANSIRGB(160,   0,  80),
+    ANSIRGB(140,   0, 100),
+    ANSIRGB(120,   0, 120),
+    ANSIRGB(100,   0, 140),
+    ANSIRGB( 80,   0, 160),
+    ANSIRGB( 60,   0, 180),
+    ANSIRGB( 40,   0, 200),
+    ANSIRGB( 20,   0, 220),
+
+
+    ANSIRGB(  0,   0, 240),     // Blue -12
+    ANSIRGB(  0,   0, 220),
+    ANSIRGB(  0,   0, 200),
+    ANSIRGB(  0,   0, 180),
+    ANSIRGB(  0,   0, 160),
+    ANSIRGB(  0,   0, 140),
     ANSIRGB(  0,   0, 120),
     ANSIRGB(  0,   0, 100),
     ANSIRGB(  0,   0,  80),
     ANSIRGB(  0,   0,  60),
     ANSIRGB(  0,   0,  40),
     ANSIRGB(  0,   0,  20),
-    ANSIRGB(  0,   0,   0)
+
+    ANSIRGB(  0,   0,   0)      // Black -1
     };
 
 #define mandel_shift 10
@@ -114,7 +128,7 @@ int main()
             int Cr = xmin;
             for (int X = 0; X < W; ++X)
             {
-                int color = mandel_HW(Cr,Ci)%21;
+                int color = mandel_HW(Cr,Ci)%32;
                 printf(color == last_color ? "  " : colormap[color]);
                 last_color = color;
                 Cr += dx;
