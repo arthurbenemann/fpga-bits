@@ -49,6 +49,24 @@ const char *colormap[21] = {
 #define mandel_mul (1 << mandel_shift)
 #define norm_max (4 << mandel_shift)
 
+int mandel(int Cr, int Ci){ // 23308ms at it=10
+    int iter = 10;
+    int Zr = Cr;
+    int Zi = Ci;
+    while (iter > 0){
+        int Zrr = (Zr * Zr) >> mandel_shift;
+        int Zii = (Zi * Zi) >> mandel_shift;
+        int Zri = (Zr * Zi) >> (mandel_shift - 1);
+        Zr = Zrr - Zii + Cr;
+        Zi = Zri + Ci;
+        if (Zrr + Zii > norm_max){
+            break;
+        }
+        --iter;
+    }
+    return iter;
+}
+
 int main()
 {
     uint32_t start,end; // timing variables
@@ -72,23 +90,7 @@ int main()
             int Cr = xmin;
             for (int X = 0; X < W; ++X)
             {
-                int Zr = Cr;
-                int Zi = Ci;
-                int iter = 20;
-                while (iter > 0)
-                {
-                    int Zrr = (Zr * Zr) >> mandel_shift;
-                    int Zii = (Zi * Zi) >> mandel_shift;
-                    int Zri = (Zr * Zi) >> (mandel_shift - 1);
-                    Zr = Zrr - Zii + Cr;
-                    Zi = Zri + Ci;
-                    if (Zrr + Zii > norm_max)
-                    {
-                        break;
-                    }
-                    --iter;
-                }
-                int color = (iter);
+                int color = mandel(Cr,Ci);
                 printf(color == last_color ? "  " : colormap[color]);
                 last_color = color;
                 Cr += dx;
