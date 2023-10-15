@@ -6,11 +6,11 @@ module Clockworks(
 );
 
 
-`ifdef PASSTHROUGH_PLL
 	// No clock divider
 	assign clock_out = clock_in;
- `else
-	// PLL Fin=12Mhz, Fout=24Mhz
+ 
+	// PLL Fin=12Mhz, Fout=16Mhz
+	/*
 	SB_PLL40_PAD pll (
 		.PACKAGEPIN(clock_in),
       	.PLLOUTCORE(clock_out),
@@ -24,11 +24,8 @@ module Clockworks(
     defparam pll.DIVF = 7'b1010100;
     defparam pll.DIVQ = 3'b110;
     defparam pll.FILTER_RANGE = 3'b001;
-    defparam pll.DIVF = 7'b0111111;			
-    defparam pll.DIVQ = 3'b101;				
-    defparam pll.FILTER_RANGE = 3'b001;
+	*/
 
-`endif
 
 	/* reset mechanism that resets the design during the first microseconds because
       reading in Ice40 BRAM during the first few microseconds returns garbage ! */

@@ -101,7 +101,7 @@ int main()
             last_color = -1;
         }
         end = IO_IN(IO_COUNTER);
-        printf("%dms", (end-start)>>14); // cycles /16 /1024 ~= time in ms
+        printf("%d kcycles", (end-start)>>20); 
 
         xmax = xmin + (xmax-xmin)/2;
         ymax = ymax/2;
