@@ -49,7 +49,7 @@ const char *colormap[21] = {
 #define mandel_mul (1 << mandel_shift)
 #define norm_max (4 << mandel_shift)
 
-int mandel(int Cr, int Ci){ // 23308ms at it=10
+int mandel(int Cr, int Ci){ // 379917 kcycles at it=10
     int iter = 10;
     int Zr = Cr;
     int Zi = Ci;
@@ -101,7 +101,7 @@ int main()
             last_color = -1;
         }
         end = IO_IN(IO_COUNTER);
-        printf("%d kcycles", (end-start)>>20); 
+        printf("%d kcycles", (end-start)>>10); 
 
         xmax = xmin + (xmax-xmin)/2;
         ymax = ymax/2;
