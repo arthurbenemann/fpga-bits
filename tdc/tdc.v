@@ -17,38 +17,32 @@
 */
 
 `define FREQ 50
-`define WIDTH 100
+`define WIDTH 240
 
 module TDC(
     input clk,tdc_in,
     output [`WIDTH:0] data
 );
 	wire [`WIDTH+1:0] carrydata;
+    wire [`WIDTH+1:0] lutdata;
 	assign carrydata[0] = tdc_in;
     
 	genvar i;
 	generate
 	for (i=0; i <= `WIDTH; i=i+1) begin: generate_sample           
-        // Carry chain
-        if (i == 0)
-            (* BEL="X8/Y22/lc1", keep *) SB_CARRY carry0 (  
-                  .I0(1'b0), .I1(1'b1),
-                  .CI(carrydata[i]),
-                  .CO(carrydata[i+1])
-            ); 
-        else 
-            (*keep*) SB_CARRY carryn (
-                  .I0(1'b0), .I1(1'b1),
-                  .CI(carrydata[i]),
-                  .CO(carrydata[i+1])
-            );        
+        (*keep*) SB_CARRY tdc_carry (
+            .I0(0), .I1(1),
+            .CI(carrydata[i]),
+            .CO(carrydata[i+1])
+        );        
 
-        // DFF w/ Synchronous Reset          
-        (*keep*) SB_DFFSR DDFS_SR (        
-            .Q(data[i]),
-            .C(clk),
-            .D(carrydata[i]),
-            .R(1'b0)
+        (* keep *) SB_LUT4 #(.LUT_INIT(16'b1111_1111_0000_0000)) tdc_lut (
+            .I0(0),.I1(0),.I2(1),.I3(carrydata[i]),
+            .O(lutdata[i])
+        );
+        (*keep*) SB_DFF tdc_dff(  
+            .Q(data[i]),.C(clk),
+            .D(lutdata[i])
         );
 	end
 	endgenerate
