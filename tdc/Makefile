@@ -6,14 +6,14 @@ $(PROJ).json: $(PROJ).v
 	yosys -ql $(PROJ).yslog -p 'synth_ice40 -top SOC -json $@' $<
 
 $(PROJ).asc: $(PROJ).json icebreaker.pcf
-	nextpnr-ice40 -ql $(PROJ).nplog --up5k --package sg48 --freq 12 --asc $@ --pcf icebreaker.pcf --json $<
+	nextpnr-ice40 -ql $(PROJ).nplog --up5k --package sg48 --freq 10 --asc $@ --pcf icebreaker.pcf --json $<
 #/usr/bin/nextpnr-ice40
 
 $(PROJ).bin: $(PROJ).asc
 	icepack $< $@
 
 $(PROJ).rpt: $(PROJ).asc
-	icetime -d up5k -c 12 -mtr $@ $<
+	icetime -d up5k -c 10 -mtr $@ $<
 
 $(PROJ)_tb: $(PROJ)_tb.v $(PROJ).v
 	iverilog -o $@ $^
