@@ -25,7 +25,7 @@
 
 */
 
-`define FREQ 16
+`define FREQ 40
 `define WIDTH 240
 
 module TDC(
@@ -94,12 +94,21 @@ module SOC (
 endmodule
 
 
-module HSOSC_6MHz( output clk);  // 48.6 MHz
+module HSOSC_6MHz( output clk);  // 48.6 MHz/4 = 12.15MHz
     SB_HFOSC OSCInst0 (
         .CLKHFPU(1'b1),
         .CLKHFEN(1'b1),
-        .CLKHF(clk)
+        .CLKHF(clkhf)
     ) /* synthesis ROUTE_THROUGH_FABRIC= [1] */;
+
+
+    reg [10:0] cnt;
+    wire clkhf;
+    always @(posedge clkhf) begin
+        cnt <= cnt+1;
+    end
+
+    assign clk = cnt[1];
 
 endmodule
 
@@ -110,19 +119,27 @@ module RegisterToUART(
   output reg [7:0] tx_data,
   input uart_ready
 );
+
     reg [`WIDTH:0] data_latch;
     reg [7:0] cnt=0;
+    reg old_det;
     
     always @(posedge clk) begin
+
+        old_det<=data[0];
+
         if(uart_ready) begin   
-            if(cnt ==`WIDTH+1) begin
-                cnt <= 0;
-                data_latch <= data;
+            if(cnt ==`WIDTH) begin
+                cnt <= cnt+1;
                 tx_data <= 10;
+            end else if(cnt ==`WIDTH+1) begin
+                cnt <= 0;
+                tx_data <= old_det? "1" : "0";
+                data_latch <= data;
             end else begin
                 cnt <= cnt+1;
                 data_latch <= data_latch>>1;
-                tx_data <= data_latch[0]? 46 : 48;
+                tx_data <= data_latch[0]? "X" : ".";
             end
         end
     end
@@ -161,6 +178,36 @@ module PLL(
             defparam pll.DIVQ = 3'b101;
             defparam pll.FILTER_RANGE = 3'b001;
             end
+        30: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b1001111;
+            defparam pll.DIVQ = 3'b101;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
+        35: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b0101110;
+            defparam pll.DIVQ = 3'b100;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
+        40: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b0110100;
+            defparam pll.DIVQ = 3'b100;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
+        45: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b0111011;
+            defparam pll.DIVQ = 3'b100;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
+        48: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b0111111;
+            defparam pll.DIVQ = 3'b100;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
         50: begin
             defparam pll.DIVR = 4'b0000;
             defparam pll.DIVF = 7'b1000010;
