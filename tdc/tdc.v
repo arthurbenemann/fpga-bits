@@ -25,7 +25,7 @@
 
 */
 
-`define FREQ 25
+`define FREQ 16
 `define WIDTH 240
 
 module TDC(
@@ -66,17 +66,17 @@ module SOC (
         input P1A3
     );    
     assign LEDS = 1;
-    assign tdc_clk = P1A4;
-    assign tdc_in = P1A3;
-    
+    assign tdc_in = osc_6mhz;
 
+    HSOSC_6MHz osc(.clk(osc_6mhz));
+    wire osc_6mhz;
+    
     PLL pll1(.clkin(CLK),.clkout(clk));
     wire clk;
-    
 	
-	TDC tdc1(.clk(tdc_clk), .tdc_in(tdc_in), .data(data));	
+	TDC tdc1(.clk(clk), .tdc_in(tdc_in), .data(data));	
+    wire tdc_in;
     wire [`WIDTH:0] data;
-    wire tdc_in,tdc_clk;
 
     RegisterToUART r2u(.clk(clk),.data(data),.tx_data(tx_data),.uart_ready(uart_ready));
     wire [7:0] tx_data;
@@ -93,6 +93,15 @@ module SOC (
     
 endmodule
 
+
+module HSOSC_6MHz( output clk);  // 6.08 MHz
+    SB_HFOSC OSCInst0 (
+        .CLKHFPU(1'b1),
+        .CLKHFEN(1'b1),
+        .CLKHF(clk)
+    ) /* synthesis ROUTE_THROUGH_FABRIC= [1] */;
+
+endmodule
 
 // Stream bits to UART
 module RegisterToUART(
@@ -133,6 +142,19 @@ module PLL(
     
     generate
         case(`FREQ)
+        16: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b1010100;
+            defparam pll.DIVQ = 3'b110;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
+
+        20: begin
+            defparam pll.DIVR = 4'b0000;
+            defparam pll.DIVF = 7'b0110100;
+            defparam pll.DIVQ = 3'b101;
+            defparam pll.FILTER_RANGE = 3'b001;
+        end
         25: begin
             defparam pll.DIVR = 4'b0000;
             defparam pll.DIVF = 7'b1000010;
