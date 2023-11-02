@@ -94,7 +94,7 @@ module SOC (
 endmodule
 
 
-module HSOSC_6MHz( output clk);  // 6.08 MHz
+module HSOSC_6MHz( output clk);  // 48.6 MHz
     SB_HFOSC OSCInst0 (
         .CLKHFPU(1'b1),
         .CLKHFEN(1'b1),
