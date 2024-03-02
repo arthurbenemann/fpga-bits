@@ -35,3 +35,28 @@ module SOC (
     ShiftReg sr1(.clk(CLK),.rgb_x4(rgb_x4),.SR_LATCH(P1A3),.SR_Q(P1A2),.SR_CK(P1A1));    
 endmodule
 
+
+module multi_pwm_controller (
+  input clk,
+  input [11:0] duty_cycle [7:0],
+  output [11:0] pwm_output
+);
+
+  reg [7:0] counter [11:0];
+  reg [11:0] pwm_output_reg;
+
+  always @(posedge clk) begin
+    for (int i = 0; i < 12; i = i + 1) begin
+      if (counter[i] == duty_cycle[i]) begin
+        counter[i] <= 8'b00000000;
+        pwm_output_reg[i] <= 1'b1;
+      end else begin
+        counter[i] <= counter[i] + 1;
+        pwm_output_reg[i] <= 1'b0;
+      end
+    end
+  end
+
+  assign pwm_output = pwm_output_reg;
+
+endmodule
