@@ -8,8 +8,10 @@ module SOC (
         input  RESET,      
         output [4:0] LEDS, 
         output TXD,
-        input P1A4,
-        input P1A3
+        output RAM_SI,
+        output RAM_CE_B,
+        output RAM_CLK,
+        input  RAM_SO
     );    
     assign LEDS = 1;
     
@@ -28,6 +30,46 @@ module SOC (
         .o_ready(uart_ready),
         .o_uart_tx(TXD)			       
     );
+
+
+
+    localparam IDLE = 0;
+    localparam TRANSFER = 1;
+    localparam BIT_CNT = 96-1;
+
+
+    reg [0:0] state = IDLE;
+    reg [BIT_CNT:0] data_out = 96'h9F_000000_0000_000000000000;
+    //reg [BIT_CNT:0] data_in;
+    reg [$clog2(BIT_CNT)-1:0] bit_count;
+    //reg [2:0]bit_count;
+
+    reg mosi;
+    reg ce;
+
+
+    assign RAM_CLK = clk;
+    assign RAM_SI = mosi;
+    assign RAM_CE_B = ce;
+
+
+    always @(negedge clk) begin
+        case (state)
+            IDLE: begin
+                ce <= 1; 
+                state <= TRANSFER;
+                bit_count <= BIT_CNT;  // Start from the MSB 
+            end
+            TRANSFER: begin
+                ce <= 0;  
+                mosi <= data_out[bit_count];
+                bit_count <= bit_count - 1;
+                if (bit_count == 0) begin
+                    state <= IDLE;
+                end
+            end
+            endcase
+    end
     
 endmodule
 
@@ -44,7 +86,8 @@ module PLL(
     defparam pll.PLLOUT_SELECT="GENCLK";
     defparam pll.DIVR = 4'b0000;
     defparam pll.DIVF = 7'b1000010;
-    defparam pll.DIVQ = 3'b100;
+    //defparam pll.DIVQ = 3'b100;
+    defparam pll.DIVQ = 3'b111;
     defparam pll.FILTER_RANGE = 3'b001;        
         
 endmodule
