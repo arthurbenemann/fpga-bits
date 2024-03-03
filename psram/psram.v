@@ -32,7 +32,7 @@ module SOC (
     );
 
 
-
+    // SPI controller
     localparam IDLE = 0;
     localparam TRANSFER = 1;
     localparam BIT_CNT = 96-1;
@@ -40,20 +40,22 @@ module SOC (
 
     reg [0:0] state = IDLE;
     reg [BIT_CNT:0] data_out = 96'h9F_000000_0000_000000000000;
-    //reg [BIT_CNT:0] data_in;
+    reg [BIT_CNT:0] data_in;
     reg [$clog2(BIT_CNT)-1:0] bit_count;
     //reg [2:0]bit_count;
 
     reg mosi;
+    wire miso;
     reg ce;
 
 
-    assign RAM_CLK = clk;
+    assign RAM_CLK = (state == TRANSFER)?!clk:0;
     assign RAM_SI = mosi;
     assign RAM_CE_B = ce;
+    assign miso = RAM_SO;
 
 
-    always @(negedge clk) begin
+    always @(posedge clk) begin
         case (state)
             IDLE: begin
                 ce <= 1; 
@@ -63,6 +65,7 @@ module SOC (
             TRANSFER: begin
                 ce <= 0;  
                 mosi <= data_out[bit_count];
+                data_in[bit_count]<=miso;
                 bit_count <= bit_count - 1;
                 if (bit_count == 0) begin
                     state <= IDLE;
