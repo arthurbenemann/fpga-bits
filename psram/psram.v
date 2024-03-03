@@ -31,30 +31,37 @@ module SOC (
         .o_uart_tx(TXD)			       
     );
 
+    SPI psram(
+        .clk(clk),
+        .miso(RAM_SO),
+        .mosi(RAM_SI),
+        .ce(RAM_CE_B),
+        .sclk(RAM_CLK)
+    );
+
+    
+endmodule
+
+module SPI(
+    input  clk,
+    input  miso,
+    output reg mosi,
+    output reg ce, 
+    output sclk
+);
 
     // SPI controller
     localparam IDLE = 0;
     localparam TRANSFER = 1;
     localparam BIT_CNT = 96-1;
 
-
     reg [0:0] state = IDLE;
     reg [BIT_CNT:0] data_out = 96'h9F_000000_0000_000000000000;
     reg [BIT_CNT:0] data_in;
     reg [$clog2(BIT_CNT)-1:0] bit_count;
-    //reg [2:0]bit_count;
 
-    reg mosi;
-    wire miso;
-    reg ce;
-
-
-    assign RAM_CLK = (state == TRANSFER)?!clk:0;
-    assign RAM_SI = mosi;
-    assign RAM_CE_B = ce;
-    assign miso = RAM_SO;
-
-
+    assign sclk = (state == TRANSFER)?!clk:0;
+    
     always @(posedge clk) begin
         case (state)
             IDLE: begin
@@ -73,7 +80,6 @@ module SOC (
             end
             endcase
     end
-    
 endmodule
 
 
