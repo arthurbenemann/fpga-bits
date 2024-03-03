@@ -31,11 +31,11 @@ $(PROJ)_syntb.vcd: $(PROJ)_syntb
 	vvp -N $< +vcd=$@
 
 prog: $(PROJ).bin
-	iceprog $<
+	iceprog -S $<
 
 sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'
-	sudo iceprog $<
+	sudo iceprog -S $<
 
 sim: $(PROJ).out bench_iverilog.v
 	vvp -n $<
