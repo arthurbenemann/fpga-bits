@@ -20,6 +20,9 @@ module SOC (
 
 	reg [7:0] tx_data = "A";
 
+    RegisterToUART r2u(.clk(clk),.data(spi_data),
+                        .tx_data(tx_data),.uart_ready(uart_ready));
+	wire [7:0] tx_data;
     wire uart_ready;
     
     corescore_emitter_uart #(
@@ -79,6 +82,34 @@ module SPI(
                 end
             end
             endcase
+    end
+
+// Stream bits to UART
+module RegisterToUART#(parameter width=96)(
+  input clk,          
+  input [width-1:0] data,  
+  output reg [7:0] tx_data,
+  input uart_ready
+);
+
+    reg [width-1:0] data_latch;
+    reg [$clog2(width/4)-1:0] cnt = 0;
+    reg old_det;
+    wire [3:0] nibble = data_latch[(width-1)-:4];
+    
+    always @(posedge clk) begin
+
+        if(uart_ready) begin   
+            if(cnt == (width/4)) begin
+                data_latch <= data;
+                cnt <= 0;
+                tx_data <= 10;  // newline
+            end else begin
+                cnt <= cnt+1;
+                data_latch <= data_latch<<4;
+                tx_data <= (nibble<10)?nibble+"0":nibble+"A"-10;
+            end
+        end
     end
 endmodule
 
