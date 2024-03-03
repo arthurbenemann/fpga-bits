@@ -2,30 +2,32 @@
 
 module bench();
    reg CLK;
-   reg uart_ready;
-   wire [7:0] tx_data;
 
+   reg miso = 0;
+   wire mosi,ce,sclk;
+   wire [95:0] data_in;
 
-   RegisterToUART dut(
-      .clk(CLK),          
-      .data(96'h12_345678_9abc_def123456789),  
-      .tx_data(tx_data),
-      .uart_ready(uart_ready)
-   );
+   SPI psram(
+      .clk(CLK),
+      .miso(mosi),
+      .mosi(mosi),
+      .ce(ce),
+      .sclk(sclk),
+      .rdata(data_in)
+   );   
 
    initial begin
       CLK = 1'b0;
       forever #1 CLK = ~CLK;
    end
-
  
    initial begin
-      uart_ready = 1'b0;
-      forever begin
-         #100 $write("%c",tx_data);
-         #1 uart_ready =1'b1;
-         #1 uart_ready =1'b0;
-      end
+      #380
+      $dumpfile("bench.vcd");
+      $dumpvars(0, bench);
+
+      #1000 $finish();
    end
+
 endmodule   
    

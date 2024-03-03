@@ -33,15 +33,17 @@ module SOC (
         .o_uart_tx(TXD)			       
     );
 
-    wire [95:0] spi_data;
     SPI psram(
         .clk(clk),
         .miso(RAM_SO),
         .mosi(RAM_SI),
         .ce(RAM_CE_B),
         .sclk(RAM_CLK),
-        .data_in(spi_data),
+        .rdata(spi_data),
+        .rvalid(rvalid)
     );   
+    wire [95:0] spi_data;
+    wire rvalid;
 endmodule
 
 module SPI(
@@ -49,8 +51,9 @@ module SPI(
     input  miso,
     output reg mosi,
     output reg ce, 
-    output sclk,
-    output reg [BIT_CNT:0] data_in
+    output reg sclk,
+    output reg [BIT_CNT:0] rdata,
+    output reg rvalid
 );
 
     // SPI controller
@@ -59,35 +62,38 @@ module SPI(
     localparam BIT_CNT = 96-1;
 
     reg [0:0] state = IDLE;
-    reg mosi_bit;
     reg [BIT_CNT:0] data_out = 96'h9F_000000_0000_000000000000;
-    //reg [BIT_CNT:0] data_in=   96'h12_345678_9abc_def123456789;
     reg [$clog2(BIT_CNT)-1:0] bit_count;
-
-    assign sclk = (state == TRANSFER)?clk:0;
+    reg clkdiv2 =0;
+    
 
     always @(posedge clk) begin
+        clkdiv2 <= !clkdiv2;
         case (state)
             IDLE: begin
                 ce <= 1; 
-                state <= TRANSFER;
-                bit_count <= BIT_CNT;  // Start from the MSB 
+                sclk <=0;
+                rvalid <=0;
+                if (clkdiv2) begin  // rising
+                    bit_count <= BIT_CNT;
+                    state <= TRANSFER;
+                end
             end
             TRANSFER: begin
                 ce <= 0;  
-                mosi_bit <= data_out[bit_count];
-                data_in[bit_count]<=miso;
-                bit_count <= bit_count - 1;
-                if (bit_count == 0) begin
-                    state <= IDLE;
+                sclk <= clkdiv2;
+                if (clkdiv2) begin  // rising
+                    rdata[bit_count]<=miso;
+                    bit_count <= bit_count - 1;
+                    if (bit_count == 0) begin
+                        state <= IDLE;
+                        rvalid <=1;
+                    end
+                end else begin      // falling
+                    mosi <= data_out[bit_count];
                 end
             end
             endcase
-    end
-
-
-    always @(negedge clk) begin
-        mosi <= data_out[bit_count];
     end
 
 endmodule
