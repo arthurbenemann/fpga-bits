@@ -123,3 +123,4 @@ isim.log
 *.hexdump
 *.o
 *.elf
+psram/bench.vcd
