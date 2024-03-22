@@ -33,67 +33,63 @@ module SOC (
         .o_uart_tx(TXD)			       
     );
 
-    SPI psram(
-        .clk(clk),
-        .miso(RAM_SO),
-        .mosi(RAM_SI),
-        .ce(RAM_CE_B),
-        .sclk(RAM_CLK),
-        .rdata(spi_data),
-        .rvalid(rvalid)
-    );   
+    // SPI psram(
+    //     .clk(clk),
+    //     .rdata(spi_data),
+    //     .rvalid(rvalid),
+    //     .sclk(RAM_CLK),
+    //     .miso(RAM_SO),
+    //     .mosi(RAM_SI),
+    //     .ce(RAM_CE_B)
+    // );   
     wire [95:0] spi_data;
     wire rvalid;
 endmodule
 
 module SPI(
-    input  clk,
-    input  miso,
-    output reg mosi,
-    output reg ce, 
-    output reg sclk,
-    output reg [BIT_CNT:0] rdata,
-    output reg rvalid
+    input           clk,
+    // data
+    input           strb,
+    input  [7:0]    transmit,
+    output reg [7:0]    received,
+    output reg      valid,
+    // SPI pins
+    input           miso,
+    output          sclk,
+    output      mosi
 );
 
     // SPI controller
     localparam IDLE = 0;
     localparam TRANSFER = 1;
-    localparam BIT_CNT = 96-1;
+    localparam BIT_CNT = 8;
 
-    reg [0:0] state = IDLE;
-    reg [BIT_CNT:0] data_out = 96'h9F_000000_0000_000000000000;
-    reg [$clog2(BIT_CNT)-1:0] bit_count;
+    reg state = IDLE;
+    reg [3:0] bitcount = 0;
     reg clkdiv2 =0;
     
+    assign sclk = !clk && (state == TRANSFER);
+    assign mosi = transmit[bitcount];
 
     always @(posedge clk) begin
-        clkdiv2 <= !clkdiv2;
-        case (state)
-            IDLE: begin
-                ce <= 1; 
-                sclk <=0;
-                rvalid <=0;
-                if (clkdiv2) begin  // rising
-                    bit_count <= BIT_CNT;
-                    state <= TRANSFER;
-                end
+        if(state == IDLE) begin
+            valid = 0;
+            if(strb) begin
+                bitcount = 7;
+                state = TRANSFER;
+                received = miso;
+            end else begin
+                bitcount = 0;
             end
-            TRANSFER: begin
-                ce <= 0;  
-                sclk <= clkdiv2;
-                if (clkdiv2) begin  // rising
-                    rdata[bit_count]<=miso;
-                    bit_count <= bit_count - 1;
-                    if (bit_count == 0) begin
-                        state <= IDLE;
-                        rvalid <=1;
-                    end
-                end else begin      // falling
-                    mosi <= data_out[bit_count];
-                end
+        end else begin
+            if (bitcount!=0) begin
+                bitcount = bitcount - 1;
+                received = received<<1 | miso; 
+            end else begin
+                state = IDLE;
+                valid = 1;
             end
-            endcase
+        end
     end
 
 endmodule
