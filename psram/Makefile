@@ -71,7 +71,7 @@ clean:
 	rm -f $(PROJ).yslog $(PROJ).nplog $(PROJ).json $(PROJ).asc $(PROJ).rpt $(PROJ).bin
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
-	rm -f start.o putchar.o print.o
+	rm -f start.o putchar.o print.o helloworld.o b.bin b.bram.elf assemble.hexdump
 
 .SECONDARY:
 .PHONY: all prog clean sim assemble compile
