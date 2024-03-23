@@ -5,11 +5,9 @@ module SOC (
         input  RESET,      
         output reg [4:0] LEDS, 
         input  RXD,     
-        output P1A1,
         output TXD  
     );
 
-    assign P1A1 = TXD;
     
     Clockworks CW(.clock_in(CLK), .clock_out(clk),.reset_ext(RESET),.resetn(resetn)); // Fin 12Mhz,  Fout 16Mhz, delayed reset and POR
     wire resetn;
