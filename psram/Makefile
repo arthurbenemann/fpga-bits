@@ -1,4 +1,4 @@
-PROJ = psram
+PROJ = spi
 
 all: $(PROJ).rpt $(PROJ).bin
 
@@ -37,8 +37,9 @@ sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'
 	sudo iceprog -S $<
 
-sim: $(PROJ).out bench_iverilog.v
+sim: $(PROJ).out $(PROJ)_bench.v
 	vvp -n $<
+	
 
 assemble:  #hacky, needs to be cleanned up
 	riscv64-unknown-elf-gcc -O -march=rv32i -mabi=ilp32 assemble.s -o assemble.o -nostartfiles
@@ -52,7 +53,7 @@ compile:
 	riscv64-unknown-elf-objcopy -O binary b.bram.elf b.bin
 	hexdump --no-squeezing -e '"%08x\n"' b.bin > assemble.hexdump
 
-$(PROJ).out: $(PROJ).v bench_iverilog.v
+$(PROJ).out: $(PROJ).v $(PROJ)_bench.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
 
 
