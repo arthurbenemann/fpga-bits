@@ -1,4 +1,4 @@
-PROJ = riscv
+PROJ = soc
 CODE = helloworld
 
 
