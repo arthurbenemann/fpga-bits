@@ -1,4 +1,4 @@
-PROJ = spi
+PROJ = riscv
 
 all: $(PROJ).rpt $(PROJ).bin
 
