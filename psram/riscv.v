@@ -494,7 +494,7 @@ module SOC (
     wire uart_ready;
 
     corescore_emitter_uart #(
-        .clk_divider(12)     // Fin=12Mhz, baud =12Mhz/6 = 2Mbaud
+        .clk_divider(48)     // Fin=12Mhz, baud =12Mhz/24 = 250kbaud
     ) UART(
         .i_clk(clk),
         .i_rst(resetn),
