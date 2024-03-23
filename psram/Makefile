@@ -1,7 +1,10 @@
 PROJ = riscv
 CODE = helloworld
 
+
+
 all: $(PROJ).rpt $(PROJ).bin
+
 
 $(PROJ).json: $(PROJ).v
 	yosys -ql $(PROJ).yslog -p 'synth_ice40 -top SOC -json $@' $<
@@ -40,6 +43,7 @@ sudo-prog: $(PROJ).bin
 
 sim: $(PROJ).out $(PROJ)_bench.v
 	vvp -n $<
+
 	
 
 assemble:  #hacky, needs to be cleanned up
@@ -48,7 +52,12 @@ assemble:  #hacky, needs to be cleanned up
 	hexdump -e '"%08x\n"' assemble.bin > assemble.hexdump
 
 
-compile:
+compile: 
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax start.s -o start.o
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax putchar.s -o putchar.o
+	riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -fno-pic -fno-stack-protector -w -Wl,--no-relax -c print.c 
+
+
 	riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -fno-pic -fno-stack-protector -w -Wl,--no-relax -c $(CODE).c 
 	riscv64-unknown-elf-ld -T bram.ld -m elf32lriscv -nostdlib -norelax print.o putchar.o $(CODE).o /opt/fomu-toolchain-Linux/lib/gcc/riscv64-unknown-elf/8.3.0/rv32i/ilp32/libgcc.a -o b.bram.elf
 	riscv64-unknown-elf-objcopy -O binary b.bram.elf b.bin
@@ -62,6 +71,7 @@ clean:
 	rm -f $(PROJ).yslog $(PROJ).nplog $(PROJ).json $(PROJ).asc $(PROJ).rpt $(PROJ).bin
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
+	rm -f start.o putchar.o print.o
 
 .SECONDARY:
 .PHONY: all prog clean sim assemble compile

@@ -350,47 +350,6 @@ module free_cnt(input clk, input resetn, output [31:0] cnt);
     end
 endmodule
 
-module Mandelbrot #(parameter mandel_shift=10, max_it=31)
-                    (input clk, input resetn, input valid, output reg ready,
-                     input signed [31:0] Cr, input signed [31:0] Ci, output reg [7:0] iteration);    
-    
-    // Local registers
-    reg signed [31:0] Zr = 0, Zi = 0;
-
-    // Intermediate results
-    wire signed [31:0] Zrr, Zii, Zri;
-    assign Zrr = (Zr*Zr) >>> mandel_shift;
-    assign Zii = (Zi*Zi) >>> mandel_shift;
-    assign Zri = (Zr*Zi) >>> (mandel_shift-1);
-    wire out_of_set = (Zrr + Zii) > (4<<mandel_shift);
-
-    always @(posedge clk) begin
-        if(!resetn) begin
-            ready <=1;
-        end else begin
-            //$display("valid %d, ready %d, it %d",valid,ready,iteration);
-            if(ready) begin   
-                if (valid) begin
-                    Zr=Cr;Zi=Ci; 
-                    iteration<=max_it;
-                    ready<=0;
-                    //$display("start %h Cr, %h Ci",Cr,Ci);
-                end 
-            end else begin
-                //$display("Zr %.2f \tZi %.2f \tCr %.2f \tCi %.2f\t out_of_set %d", Zr/1024.0,Zi/1024.0,Cr/1024.0,Ci/1024.0,out_of_set);
-                if(!out_of_set & iteration>0) begin
-                    Zr <= Zrr - Zii + Cr;
-                    Zi <= Zri + Ci;
-                    iteration <= iteration-1;
-                end else begin
-                    ready <=1;
-                    //$display("remaining iterations %d", iteration);
-                end
-            end   
-        end     
-    end
-endmodule
-
 
 module SOC (
         input  CLK,        
@@ -407,29 +366,6 @@ module SOC (
     wire resetn;
     wire clk;
 
-    Mandelbrot mb(.clk(clk), .resetn(resetn),.valid(mandel_valid),.ready(mandel_ready),.Cr(Cr),.Ci(Ci),.iteration(mandel_iteration));
-    wire mandel_valid = isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CTRL];
-    reg signed [31:0] Cr, Ci;
-    wire mandel_ready;
-    wire [7:0] mandel_iteration;
-
-
-    // ## DEBUG
-    // always @(posedge clk) begin
-    //     if(isIO & mem_wstrb ) begin
-	//         $display("IO %h",mem_wordaddr);
-    //     end
-    // end
-    // DEBUG
-
-    always @(posedge clk) begin
-        if(isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CR]) begin
-	        Cr <= mem_wdata;
-        end
-        if(isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CI]) begin
-	        Ci <= mem_wdata;
-        end
-    end
 
     wire [31:0] RAM_rdata;
     wire [29:0] mem_wordaddr = mem_addr[31:2];
@@ -447,9 +383,7 @@ module SOC (
 
     wire [31:0] IO_rdata = 
         mem_wordaddr[IO_UART_CNTL_bit]  ? { 22'b0, !uart_ready, 9'b0} :
-        mem_wordaddr[IO_COUNTER_bit]    ? counter:
-        mem_wordaddr[IO_MANDEL_CTRL]    ? mandel_ready:
-        mem_wordaddr[IO_MANDEL_IT]      ? mandel_iteration
+        mem_wordaddr[IO_COUNTER_bit]    ? counter
                                         : 32'b0;
     assign mem_rdata = isRAM ? RAM_rdata : IO_rdata ;
 
@@ -478,10 +412,6 @@ module SOC (
     localparam IO_UART_DAT_bit  = 1;        // W data to send (8 bits) 
     localparam IO_UART_CNTL_bit = 2;     // R status. bit 9: busy sending
     localparam IO_COUNTER_bit   = 3;
-    localparam IO_MANDEL_CTRL   = 4;
-    localparam IO_MANDEL_CR     = 5;
-    localparam IO_MANDEL_CI     = 6;
-    localparam IO_MANDEL_IT     = 7;  
 
 
     always @(posedge clk) begin
