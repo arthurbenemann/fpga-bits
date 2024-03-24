@@ -1,11 +1,16 @@
 `include "riscv.v"
+`include "spi.v"
 
 module SOC (
         input  CLK,        
         input  RESET,      
         output reg [4:0] LEDS, 
         input  RXD,     
-        output TXD  
+        output TXD,
+        output RAM_SI,
+        output RAM_CE_B,
+        output RAM_CLK,
+        input  RAM_SO
     );
 
     
@@ -77,6 +82,30 @@ module SOC (
         .o_ready(uart_ready),
         .o_uart_tx(TXD)      			       
     );
+
+   reg miso = 0;
+   wire mosi,sclk;
+
+   reg strb =0;
+   reg [7:0] transmit = 8'b1100_1010;
+   wire [7:0] received;
+   wire valid;
+
+   SPI spi_psram(
+        .clk(CLK),
+
+        .miso(RAM_SO),
+        .mosi(RAM_SI),
+        //.ce(RAM_CE_B),
+        .sclk(RAM_CLK),
+
+        .strb(strb),
+        .transmit(transmit),
+        .received(received),
+        .valid(valid)
+   );   
+    
+
 
     // DEBUG terminal
     `ifdef BENCH
