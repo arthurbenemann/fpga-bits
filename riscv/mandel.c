@@ -103,8 +103,8 @@ int mandel_HW(int Cr, int Ci){
     return it;
 }
 
-#define W 800
-#define H 600
+#define W 80
+#define H 60
 int main()
 {
     uint32_t start,end; // timing variables
@@ -135,7 +135,7 @@ int main()
             }
             Ci += dy;
 
-            printf("\033[49m\n");
+            printf("\033[49m\r\n");
             last_color = -1;
         }
         end = IO_IN(IO_COUNTER);

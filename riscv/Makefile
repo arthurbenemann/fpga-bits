@@ -45,9 +45,16 @@ assemble:  #hacky, needs to be cleanned up
 	hexdump -e '"%08x\n"' assemble.bin > assemble.hexdump
 
 
+LIBGCC := $(shell riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -print-libgcc-file-name)
+PICOLIBC_INC := /usr/lib/picolibc/riscv64-unknown-elf/include
+CFLAGS := -march=rv32i -mabi=ilp32 -fno-pic -fno-stack-protector -w -Wl,--no-relax -I$(PICOLIBC_INC)
+
 compile:
-	riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -fno-pic -fno-stack-protector -w -Wl,--no-relax -c mandel.c 
-	riscv64-unknown-elf-ld -T bram.ld -m elf32lriscv -nostdlib -norelax print.o putchar.o mandel.o /opt/fomu-toolchain-Linux/lib/gcc/riscv64-unknown-elf/8.3.0/rv32i/ilp32/libgcc.a -o b.bram.elf
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax start.s -o start.o
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax putchar.s -o putchar.o
+	riscv64-unknown-elf-gcc $(CFLAGS) -c print.c
+	riscv64-unknown-elf-gcc $(CFLAGS) -c mandel.c
+	riscv64-unknown-elf-ld -T bram.ld -m elf32lriscv -nostdlib --no-relax start.o print.o putchar.o mandel.o $(LIBGCC) -o b.bram.elf
 	riscv64-unknown-elf-objcopy -O binary b.bram.elf b.bin
 	hexdump --no-squeezing -e '"%08x\n"' b.bin > assemble.hexdump
 
@@ -59,6 +66,7 @@ clean:
 	rm -f $(PROJ).yslog $(PROJ).nplog $(PROJ).json $(PROJ).asc $(PROJ).rpt $(PROJ).bin
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
+	rm -f start.o print.o putchar.o mandel.o b.bram.elf b.bin assemble.hexdump
 
 .SECONDARY:
 .PHONY: all prog clean sim assemble compile
