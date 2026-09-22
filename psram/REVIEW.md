@@ -259,14 +259,28 @@ scales badly as you widen the transfer.
 this environment, so I have no LUT numbers for you — worth a `make psram.rpt`
 before and after.)
 
-### 8. Port declared with a `localparam` declared later in the body
+### 8. Port declared with a `localparam` declared later in the body — this is now a hard build failure
 
 ```verilog
 output reg [BIT_CNT:0] rdata,    // BIT_CNT is a localparam further down
 ```
 
-Icarus accepts it; not all tools will, and it can't be overridden per instance.
-Make it a real parameter: `module SPI #(parameter WIDTH = 96) (...)`.
+Icarus accepts this. **yosys 0.69 does not:**
+
+```
+psram.v:55: ERROR: Non-constant range in declaration of \rdata
+```
+
+So `make` fails outright on a current toolchain — you must have built this with
+an older yosys. Make it a real parameter:
+
+```verilog
+module SPI #(parameter WIDTH = 96) (
+    ...
+    output reg [WIDTH-1:0] rdata,
+```
+
+With that fix it synthesises to 324 LUT4 / 236 DFF. See `RESOURCES.md`.
 
 ### 9. The testbench doesn't test the thing
 
