@@ -18,7 +18,30 @@ module PSRAM_SOC (
 );
     assign SD_CS = 1'b1;        // keep the card deselected
 
-    Clockworks CW(.clock_in(CLK), .clock_out(clk), .reset_ext(RESET), .resetn(resetn)); // 12 MHz, no PLL
+    // Port A passes the 12 MHz pad clock through for the CPU; port B is the
+    // PLL output for the PSRAM engine: 12 * (79+1) / 2^4 = 60 MHz (SCLK 30 MHz).
+    wire clk_12, clk_spi;
+`ifdef BENCH
+    assign clk_12 = CLK;
+    assign clk_spi = CLK;
+`else
+    SB_PLL40_2_PAD #(
+        .FEEDBACK_PATH("SIMPLE"),
+        .PLLOUT_SELECT_PORTB("GENCLK"),
+        .DIVR(4'b0000),
+        .DIVF(7'b1001111),
+        .DIVQ(3'b100),
+        .FILTER_RANGE(3'b001)
+    ) pll (
+        .PACKAGEPIN(CLK),
+        .PLLOUTGLOBALA(clk_12),
+        .PLLOUTGLOBALB(clk_spi),
+        .RESETB(1'b1),
+        .BYPASS(1'b0)
+    );
+`endif
+
+    Clockworks CW(.clock_in(clk_12), .clock_out(clk), .reset_ext(RESET), .resetn(resetn));
     wire resetn;
     wire clk;
 
@@ -100,7 +123,7 @@ module PSRAM_SOC (
             psram_wdata <= mem_wdata;
     end
 
-    PSRAM_SPI psram(
+    PSRAM_SPI_CDC psram(
         .clk(clk),
         .start(isIO & mem_wstrb & mem_wordaddr[IO_PSRAM_CMD_bit]),
         .cmd(mem_wdata[31:24]),
@@ -108,6 +131,7 @@ module PSRAM_SOC (
         .wdata(psram_wdata),
         .rdata(psram_rdata),
         .busy(psram_busy),
+        .clk_spi(clk_spi),
         .miso(RAM_SO),
         .mosi(RAM_SI),
         .ce(RAM_CE_B),

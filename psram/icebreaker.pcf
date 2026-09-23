@@ -74,3 +74,7 @@ set_io LEDS[4] 26
 set_io -nowarn BTN1       20
 set_io -nowarn BTN2       19
 set_io -nowarn BTN3       18
+
+# clock constraints (nextpnr)
+set_frequency clk     12
+set_frequency clk_spi 60
