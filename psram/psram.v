@@ -19,7 +19,11 @@ module SOC (
     wire clk;
 
 
-    RegisterToUART r2u(.clk(clk),.data(spi_data),
+    reg [63:0] snapshot;
+    always @(posedge clk)
+        if (rvalid) snapshot <= spi_data;
+
+    RegisterToUART #(.width(64)) r2u(.clk(clk),.data(snapshot),
                         .tx_data(tx_data),.uart_ready(uart_ready));
 	wire [7:0] tx_data;
     wire uart_ready;
@@ -33,7 +37,7 @@ module SOC (
         .o_uart_tx(TXD)			       
     );
 
-    SPI psram(
+    SPI #(.width(64)) psram(
         .clk(clk),
         .miso(RAM_SO),
         .mosi(RAM_SI),
@@ -41,56 +45,72 @@ module SOC (
         .sclk(RAM_CLK),
         .rdata(spi_data),
         .rvalid(rvalid)
-    );   
-    wire [95:0] spi_data;
+    );
+    wire [63:0] spi_data;
     wire rvalid;
 endmodule
 
-module SPI(
+// Writes WDATA to ADDR once, then repeatedly re-reads ADDR forever.
+// rdata always reflects the most recent transaction: garbage (MISO
+// undriven) right after the one-time write, real read data from then on.
+module SPI #(
+    parameter width = 64,
+    parameter [23:0] ADDR  = 24'h000010,
+    parameter [31:0] WDATA = 32'h12345678
+)(
     input  clk,
     input  miso,
     output reg mosi,
-    output reg ce, 
+    output reg ce,
     output reg sclk,
-    output reg [BIT_CNT:0] rdata,
+    output reg [width-1:0] rdata,
     output reg rvalid
 );
+
+    localparam CMD_WRITE = 8'h02;
+    localparam CMD_READ  = 8'h03;
+
+    // IDLE holds CE# high for 2 clk cycles (40 ns at 50 MHz); tCPH min is 18 ns.
 
     // SPI controller
     localparam IDLE = 0;
     localparam TRANSFER = 1;
-    localparam BIT_CNT = 96-1;
+    localparam BIT_CNT = width-1;
 
     reg [0:0] state = IDLE;
-    reg [BIT_CNT:0] data_out = 96'h9F_000000_0000_000000000000;
+    reg did_write = 0;
+    reg [width-1:0] data_out;
     reg [$clog2(BIT_CNT)-1:0] bit_count;
     reg clkdiv2 =0;
-    
+
 
     always @(posedge clk) begin
         clkdiv2 <= !clkdiv2;
         case (state)
             IDLE: begin
-                ce <= 1; 
+                ce <= 1;
                 sclk <=0;
                 rvalid <=0;
                 if (clkdiv2) begin  // rising
+                    data_out <= did_write ? {CMD_READ, ADDR, 32'h0} : {CMD_WRITE, ADDR, WDATA};
                     bit_count <= BIT_CNT;
                     state <= TRANSFER;
                 end
             end
             TRANSFER: begin
-                ce <= 0;  
+                ce <= 0;
                 sclk <= clkdiv2;
                 if (clkdiv2) begin  // rising
-                    rdata[bit_count]<=miso;
+                    rdata <= {rdata[width-2:0], miso};
                     bit_count <= bit_count - 1;
                     if (bit_count == 0) begin
                         state <= IDLE;
                         rvalid <=1;
+                        did_write <= 1;
                     end
                 end else begin      // falling
-                    mosi <= data_out[bit_count];
+                    mosi <= data_out[width-1];
+                    data_out <= data_out << 1;
                 end
             end
             endcase
@@ -107,7 +127,7 @@ module RegisterToUART#(parameter width=96)(
 );
 
     reg [width-1:0] data_latch;
-    reg [$clog2(width/4)-1:0] cnt = 0;
+    reg [$clog2(width/4+1)-1:0] cnt = 0;
     reg old_det;
     wire [3:0] nibble = data_latch[(width-1)-:4];
     
