@@ -47,6 +47,7 @@ set_io -nowarn SIO2       3
 set_io -nowarn RAM_CE_B   48
 set_io -nowarn RAM_CLK    46
 set_io -nowarn SD_CMD     44
+set_io -nowarn SD_CS      47
 
 # PMOD 1B
 set_io -nowarn P1B1       43
