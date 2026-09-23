@@ -1,8 +1,12 @@
-// RISC-V core from ../riscv with the PSRAM engine as a memory-mapped peripheral.
+// RISC-V core from ../riscv with the PSRAM mapped into its address space.
+//   0x000000-0x3FFFFF  BRAM (6 KB populated)
+//   0x400000-0x7FFFFF  IO page
+//   0x800000-0xFFFFFF  PSRAM, 8 MB
 // Build with -I../riscv; riscv.v also defines its own SOC/Mandelbrot tops, which
 // go unused here.
 `include "riscv.v"
 `include "psram_spi.v"
+`include "psram_bus.v"
 
 module PSRAM_SOC (
     input            CLK,
@@ -52,8 +56,9 @@ module PSRAM_SOC (
     wire [3:0]  mem_wmask;
 
     wire [29:0] mem_wordaddr = mem_addr[31:2];
-    wire isIO  = mem_addr[22];
-    wire isRAM = !isIO;
+    wire isPSRAM = mem_addr[23];
+    wire isIO    = !mem_addr[23] &  mem_addr[22];
+    wire isRAM   = !mem_addr[23] & !mem_addr[22];
     wire mem_wstrb = |mem_wmask;
 
     // Memory-mapped IO in IO page, 1-hot addressing in word address.
@@ -61,22 +66,19 @@ module PSRAM_SOC (
     localparam IO_UART_DAT_bit  = 1;  // W data to send (8 bits)
     localparam IO_UART_CNTL_bit = 2;  // R status. bit 9: busy sending
     localparam IO_COUNTER_bit   = 3;  // R free-running clk counter
-    localparam IO_PSRAM_CMD_bit = 4;  // W {cmd[7:0], addr[23:0]} starts a transfer; R bit 0: busy
-    localparam IO_PSRAM_DAT_bit = 5;  // W data for next write; R data from last transfer
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
     wire        uart_ready;
     wire [31:0] psram_rdata;
-    wire        psram_busy;
+    wire        psram_rbusy, psram_wbusy;
 
     wire [31:0] IO_rdata =
         mem_wordaddr[IO_UART_CNTL_bit] ? {22'b0, !uart_ready, 9'b0} :
-        mem_wordaddr[IO_COUNTER_bit]   ? counter :
-        mem_wordaddr[IO_PSRAM_CMD_bit] ? {31'b0, psram_busy} :
-        mem_wordaddr[IO_PSRAM_DAT_bit] ? psram_rdata
+        mem_wordaddr[IO_COUNTER_bit]   ? counter
                                        : 32'b0;
-    assign mem_rdata = isRAM ? RAM_rdata : IO_rdata;
+    assign mem_rdata = isPSRAM ? psram_rdata :
+                       isRAM   ? RAM_rdata   : IO_rdata;
 
     Memory RAM(
         .clk(clk),
@@ -93,8 +95,10 @@ module PSRAM_SOC (
         .mem_addr(mem_addr),
         .mem_rdata(mem_rdata),
         .mem_rstrb(mem_rstrb),
+        .mem_rbusy(psram_rbusy),
         .mem_wdata(mem_wdata),
-        .mem_wmask(mem_wmask)
+        .mem_wmask(mem_wmask),
+        .mem_wbusy(psram_wbusy)
     );
 
     always @(posedge clk) begin
@@ -117,20 +121,16 @@ module PSRAM_SOC (
 
     free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));
 
-    reg [31:0] psram_wdata;
-    always @(posedge clk) begin
-        if (isIO & mem_wstrb & mem_wordaddr[IO_PSRAM_DAT_bit])
-            psram_wdata <= mem_wdata;
-    end
-
-    PSRAM_SPI_CDC psram(
+    PSRAM_BUS psram(
         .clk(clk),
-        .start(isIO & mem_wstrb & mem_wordaddr[IO_PSRAM_CMD_bit]),
-        .cmd(mem_wdata[31:24]),
-        .addr(mem_wdata[23:0]),
-        .wdata(psram_wdata),
+        .sel(isPSRAM),
+        .addr(mem_addr[22:0]),
+        .rstrb(mem_rstrb),
+        .wdata(mem_wdata),
+        .wmask(mem_wmask),
         .rdata(psram_rdata),
-        .busy(psram_busy),
+        .rbusy(psram_rbusy),
+        .wbusy(psram_wbusy),
         .clk_spi(clk_spi),
         .miso(RAM_SO),
         .mosi(RAM_SI),

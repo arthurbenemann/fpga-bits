@@ -8,6 +8,7 @@ module PSRAM_SPI_CDC (
     input      [7:0]  cmd,
     input      [23:0] addr,
     input      [31:0] wdata,
+    input      [2:0]  nbytes,       // data bytes to clock, 1..4
     output     [31:0] rdata,
     output reg        busy = 1'b0,
 
@@ -23,6 +24,7 @@ module PSRAM_SPI_CDC (
     reg [7:0]  req_cmd;
     reg [23:0] req_addr;
     reg [31:0] req_wdata;
+    reg [2:0]  req_nbytes;
 
     always @(posedge clk) begin
         ack_s <= {ack_s[0], ack_t};
@@ -30,6 +32,7 @@ module PSRAM_SPI_CDC (
             req_cmd   <= cmd;
             req_addr  <= addr;
             req_wdata <= wdata;
+            req_nbytes <= nbytes;
             req_t     <= ~req_t;
             busy      <= 1'b1;
         end else if (busy && ack_s[1] == req_t) begin
@@ -58,6 +61,7 @@ module PSRAM_SPI_CDC (
         .cmd(req_cmd),
         .addr(req_addr),
         .wdata(req_wdata),
+        .nbytes(req_nbytes),
         .rdata(rdata),
         .busy(engine_busy),
         .miso(miso),
@@ -67,8 +71,9 @@ module PSRAM_SPI_CDC (
     );
 endmodule
 
-// Single-SPI PSRAM transaction engine: one 64-bit transfer of
-// {cmd, addr[23:0], wdata[31:0]}, capturing the last 32 bits of MISO into rdata.
+// Single-SPI PSRAM transaction engine: one transfer of {cmd, addr[23:0]} followed
+// by the first `nbytes` (1..4) bytes of wdata, MSB first, capturing the last 32 bits
+// of MISO into rdata (meaningful for 4-byte reads).
 //   write: cmd=0x02, read: cmd=0x03, read ID: cmd=0x9F (rdata = MFID,KGD,EID0,EID1)
 // SCLK = clk/2, mode 0. MOSI changes on SCLK falling. MISO is sampled on the
 // clk edge that drives SCLK low again, i.e. the bit the device launched one full
@@ -79,6 +84,7 @@ module PSRAM_SPI (
     input      [7:0]  cmd,
     input      [23:0] addr,
     input      [31:0] wdata,
+    input      [2:0]  nbytes,
     output reg [31:0] rdata,
     output            busy,
 
@@ -89,7 +95,7 @@ module PSRAM_SPI (
 );
     reg [63:0] shift_out;
     reg [31:0] shift_in;
-    reg [6:0]  bit_count = 0;   // 63 down to -1; bit 6 set means all 64 bits clocked
+    reg [6:0]  bit_count = 0;   // (32+8*nbytes-1) down to -1; bit 6 set means done
     reg        active = 1'b0;
     reg        phase  = 1'b0;   // 0: SCLK low / drive MOSI / sample MISO, 1: SCLK high
 
@@ -97,12 +103,12 @@ module PSRAM_SPI (
     assign busy = active;
 
     // The sample taken on the very first SCLK-low edge is junk, but only the
-    // last 32 of the 65 samples are kept, so it falls out of shift_in.
+    // last 32 samples are kept, so it falls out of shift_in.
     always @(posedge clk) begin
         if (!active) begin
             if (start) begin
                 shift_out <= {cmd, addr, wdata};
-                bit_count <= 63;
+                bit_count <= 7'd31 + {1'b0, nbytes, 3'b000};
                 phase     <= 1'b0;
                 active    <= 1'b1;
             end

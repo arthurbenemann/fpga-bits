@@ -62,8 +62,10 @@ module Processor (
     output     [31:0]   mem_addr, 
     input      [31:0]   mem_rdata, 
     output 	            mem_rstrb,
-    output     [31:0]   mem_wdata, 
-    output     [3:0]	mem_wmask	  
+    input               mem_rbusy,  // read data not ready yet: hold in WAIT_INSTR / WAIT_DATA
+    output     [31:0]   mem_wdata,
+    output     [3:0]	mem_wmask,
+    input               mem_wbusy   // store not accepted yet: hold in STORE with wmask asserted
 );
 
 
@@ -100,8 +102,10 @@ module Processor (
 	            state <= WAIT_INSTR;
 	        end
 	        WAIT_INSTR: begin
-	            instr <= mem_rdata;
-	            state <= FETCH_REGS;
+                if(!mem_rbusy) begin
+	                instr <= mem_rdata;
+	                state <= FETCH_REGS;
+                end
 	        end
 	        FETCH_REGS: begin
 	            rs1 <= RegisterBank[rs1Id];
@@ -125,10 +129,14 @@ module Processor (
                 state <= WAIT_DATA;
             end
             WAIT_DATA: begin
-                state <= FETCH_INSTR;
+                if(!mem_rbusy) begin
+                    state <= FETCH_INSTR;
+                end
 	        end
             STORE: begin
-                state <= FETCH_INSTR;
+                if(!mem_wbusy) begin
+                    state <= FETCH_INSTR;
+                end
 	        end
 	        endcase
             
@@ -156,7 +164,7 @@ module Processor (
     wire [31:0] PCplus4 = PC+4;
     
     // Register update control
-    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore && !isLoad)|| (state == WAIT_DATA); // isLoad only to help with sim viz
+    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore && !isLoad)|| (state == WAIT_DATA && !mem_rbusy); // isLoad only to help with sim viz
 
 
     wire [31:0] writeBackData = (isJAL | isJALR)? PCplus4:
@@ -469,8 +477,10 @@ module SOC (
     .mem_addr(mem_addr), 
     .mem_rdata(mem_rdata), 
     .mem_rstrb(mem_rstrb),
+    .mem_rbusy(1'b0),
     .mem_wdata(mem_wdata),
-        .mem_wmask(mem_wmask)
+    .mem_wmask(mem_wmask),
+    .mem_wbusy(1'b0)
     );
 
     // Memory-mapped IO in IO page, 1-hot addressing in word address.

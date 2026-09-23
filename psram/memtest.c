@@ -3,33 +3,31 @@
 #define IO_BASE      0x400000
 #define IO_LEDS      4
 #define IO_COUNTER   32
-#define IO_PSRAM_CMD 64
-#define IO_PSRAM_DAT 128
 
 #define IO_IN(port)       *(volatile uint32_t *)(IO_BASE + port)
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
 
-#define CMD_WRITE 0x02
-#define CMD_READ  0x03
-#define CMD_ID    0x9F
-
+#define PSRAM_BASE 0x800000u
 #define PSRAM_SIZE (8u << 20)
 #define CLK_KHZ    12000
 
 int printf(const char *fmt, ...);
 int putchar(int c);
 
-// A start is ignored while busy, so always psram_wait() before psram_start().
-// The engine captures cmd/addr/data at start, so the next word may be written
-// to IO_PSRAM_DAT while a transfer is still in flight.
-static void psram_wait(void)
-{
-    while (IO_IN(IO_PSRAM_CMD) & 1);
-}
+static volatile uint32_t *const psram32  = (volatile uint32_t *)PSRAM_BASE;
+static volatile uint16_t *const psram16  = (volatile uint16_t *)PSRAM_BASE;
+static volatile int16_t  *const psram16s = (volatile int16_t  *)PSRAM_BASE;
+static volatile uint8_t  *const psram8   = (volatile uint8_t  *)PSRAM_BASE;
+static volatile int8_t   *const psram8s  = (volatile int8_t   *)PSRAM_BASE;
 
-static void psram_start(uint32_t cmd, uint32_t addr)
+static uint32_t errors;
+
+static void check(const char *what, uint32_t got, uint32_t want)
 {
-    IO_OUT(IO_PSRAM_CMD, (cmd << 24) | addr);
+    if (got != want) {
+        if (errors < 8) printf("\r\n  %s: got %x want %x", what, got, want);
+        ++errors;
+    }
 }
 
 // Unique per word, and exercises the high bits even for low addresses.
@@ -38,44 +36,67 @@ static uint32_t pattern(uint32_t addr)
     return (addr << 8) ^ addr ^ 0xA5C3F00Fu;
 }
 
+// Byte/halfword stores write only their own bytes, little-endian;
+// signed loads sign-extend.
+static void test_subword(void)
+{
+    for (uint32_t w = 0; w < 64; ++w) psram32[w] = 0xFFFFFFFFu;
+
+    for (uint32_t i = 0; i < 64; ++i) psram8[i] = i;             // bytes 0..63   = words 0..15
+    for (uint32_t i = 32; i < 64; ++i) psram16[i] = 0x8000 | i;   // bytes 64..127 = words 16..31
+
+    for (uint32_t w = 0; w < 16; ++w) {
+        uint32_t b = 4 * w;
+        check("sb", psram32[w], (b + 3) << 24 | (b + 2) << 16 | (b + 1) << 8 | b);
+    }
+    for (uint32_t w = 16; w < 32; ++w) {
+        uint32_t h = 2 * w;
+        check("sh", psram32[w], (0x8000 | (h + 1)) << 16 | (0x8000 | h));
+    }
+    check("untouched", psram32[32], 0xFFFFFFFFu);
+
+    check("lb  -1",  (uint32_t)(int32_t)psram8s[128], 0xFFFFFFFFu);
+    check("lbu 255", psram8[128], 0xFFu);
+    check("lb  5",   (uint32_t)(int32_t)psram8s[5], 5);
+    check("lh",      (uint32_t)(int32_t)psram16s[32], 0xFFFF8020u);
+    check("lhu",     psram16[33], 0x8021u);
+}
+
+// Instruction fetch from PSRAM: addi a0,a0,1 ; ret
+static void test_exec(void)
+{
+    volatile uint32_t *code = psram32 + 0x400;
+    code[0] = 0x00150513u;
+    code[1] = 0x00008067u;
+    int (*fn)(int) = (int (*)(int))(PSRAM_BASE + 0x1000);
+    check("exec", fn(41), 42);
+}
+
 int main()
 {
-    printf("\r\nPSRAM memtest, %d KB\r\n", PSRAM_SIZE >> 10);
-    psram_start(CMD_ID, 0);
-    psram_wait();
-    printf("ID: %x (expect 0D5D....)\r\n", IO_IN(IO_PSRAM_DAT));
+    printf("\r\nPSRAM mapped at %x, %d KB\r\n", PSRAM_BASE, PSRAM_SIZE >> 10);
 
     for (uint32_t pass = 0;; ++pass) {
         uint32_t invert = (pass & 1) ? 0xFFFFFFFFu : 0;
 
-        // Posted writes: prepare the next word while the previous one is shifting.
+        errors = 0;
+        test_subword();
+        test_exec();
+
         uint32_t t0 = IO_IN(IO_COUNTER);
         for (uint32_t a = 0; a < PSRAM_SIZE; a += 4) {
             if ((a & 0x7FFFF) == 0) putchar('.');
-            IO_OUT(IO_PSRAM_DAT, pattern(a) ^ invert);
-            psram_wait();
-            psram_start(CMD_WRITE, a);
+            psram32[a >> 2] = pattern(a) ^ invert;
         }
-        psram_wait();
         uint32_t t1 = IO_IN(IO_COUNTER);
 
-        // Pipelined reads: start the next read before checking the current word.
-        uint32_t errors = 0;
-        psram_start(CMD_READ, 0);
         for (uint32_t a = 0; a < PSRAM_SIZE; a += 4) {
             if ((a & 0x7FFFF) == 0) putchar('.');
-            psram_wait();
-            uint32_t got = IO_IN(IO_PSRAM_DAT);
-            if (a + 4 < PSRAM_SIZE) psram_start(CMD_READ, a + 4);
-            uint32_t want = pattern(a) ^ invert;
-            if (got != want) {
-                if (errors < 8) printf("\r\n  %x: got %x want %x", a, got, want);
-                ++errors;
-            }
+            check("word", psram32[a >> 2], pattern(a) ^ invert);
         }
         uint32_t t2 = IO_IN(IO_COUNTER);
 
-        printf("\r\npass %d: %d errors, write %d ms, read %d ms\r\n",
+        printf("\r\npass %d: %d errors (subword, exec, 8 MB), write %d ms, read %d ms\r\n",
                pass, errors, (t1 - t0) / CLK_KHZ, (t2 - t1) / CLK_KHZ);
         IO_OUT(IO_LEDS, errors ? 0x1F : pass);
     }
