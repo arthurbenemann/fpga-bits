@@ -7,7 +7,11 @@ SECTIONS
     everything :
     {
 	. = ALIGN(4);
-	start.o (.text)
-        *(.*)
+	KEEP(start.o (.text))
+        *(.text .text.*)
+        *(.rodata .rodata.* .srodata .srodata.*)
+        *(.data .data.* .sdata .sdata.*)
+        *(.sbss .sbss.* .bss .bss.* COMMON)
     } >BRAM
+    /DISCARD/ : { *(.eh_frame .eh_frame_hdr) }
 }

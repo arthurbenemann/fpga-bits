@@ -124,3 +124,8 @@ isim.log
 *.o
 *.elf
 psram/bench.vcd
+
+# PSRAM images uploaded by the bootloader
+*.img
+psram/build/
+*.pyc

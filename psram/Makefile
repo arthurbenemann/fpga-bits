@@ -40,10 +40,10 @@ sudo-prog: $(PROJ).bin
 sim: $(PROJ).out bench_iverilog.v
 	vvp -n $<
 
-# RISC-V SoC with PSRAM peripheral (soc.v), running memtest.c from BRAM.
-# The CPU and firmware runtime come from ../riscv.
+# RISC-V SoC with PSRAM mapped at 0x800000 (soc.v). BRAM holds $(FW): the UART
+# bootloader by default, or FW=memtest. The CPU and firmware runtime come from ../riscv.
 RV     = ../riscv
-FW     = memtest
+FW     = boot
 LIBGCC := $(shell riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -print-libgcc-file-name)
 CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/lib/picolibc/riscv64-unknown-elf/include
 
@@ -64,11 +64,34 @@ soc-prog: soc.bin
 assemble.hexdump: $(FW).c $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/start.s -o start.o
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/putchar.s -o putchar.o
-	riscv64-unknown-elf-gcc $(CFLAGS) -c $(RV)/print.c -o print.o
-	riscv64-unknown-elf-gcc $(CFLAGS) -c $(FW).c -o $(FW).o
-	riscv64-unknown-elf-ld -T $(RV)/bram.ld -m elf32lriscv -nostdlib --no-relax start.o print.o putchar.o $(FW).o $(LIBGCC) -o fw.elf
+	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c $(RV)/print.c -o print.o
+	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c $(FW).c -o $(FW).o
+	riscv64-unknown-elf-ld -T $(RV)/bram.ld -m elf32lriscv -nostdlib --no-relax --gc-sections start.o print.o putchar.o $(FW).o $(LIBGCC) -o fw.elf
 	riscv64-unknown-elf-objcopy -O binary fw.elf fw.bin
 	hexdump --no-squeezing -e '"%08x\n"' fw.bin > $@
+
+# Programs that run from PSRAM, uploaded by the bootloader: make load IMG=coremark.img
+PICOLIBC := /usr/lib/picolibc/riscv64-unknown-elf/lib/rv32i/ilp32
+IMG      := coremark.img
+CM       := coremark
+CM_SRC   := $(wildcard $(CM)/*.c)
+CM_OBJ   := $(patsubst $(CM)/%.c,build/cm_%.o,$(CM_SRC))
+CM_FLAGS := $(CFLAGS) -I$(CM) -DPERFORMANCE_RUN=1 -DITERATIONS=0 -DFLAGS_STR='"$(CFLAGS)"'
+
+crt_psram.o: crt_psram.s
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
+
+build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h)
+	@mkdir -p build
+	riscv64-unknown-elf-gcc $(CM_FLAGS) -c $< -o $@
+
+coremark.img: crt_psram.o $(CM_OBJ) psram.ld
+	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax crt_psram.o $(CM_OBJ) \
+		--start-group $(PICOLIBC)/libc.a $(PICOLIBC)/libm.a $(LIBGCC) --end-group -o coremark.elf
+	riscv64-unknown-elf-objcopy -O binary coremark.elf $@
+
+load: $(IMG)
+	./load.py $(IMG)
 
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
@@ -80,7 +103,8 @@ clean:
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin
 	rm -f start.o putchar.o print.o $(FW).o fw.elf fw.bin assemble.hexdump
+	rm -rf build crt_psram.o coremark.elf coremark.img
 
 .SECONDARY:
-.PHONY: all prog clean sim soc soc-prog
+.PHONY: all prog clean sim soc soc-prog load
 
