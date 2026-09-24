@@ -129,3 +129,4 @@ psram/bench.vcd
 *.img
 psram/build/
 *.pyc
+psram/fw.name

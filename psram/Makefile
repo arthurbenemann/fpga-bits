@@ -61,7 +61,11 @@ soc.bin: soc.asc
 soc-prog: soc.bin
 	iceprog $<
 
-assemble.hexdump: $(FW).c $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
+# Records the last FW built; rewritten only when FW changes, so switching FW rebuilds.
+fw.name: FORCE
+	@echo $(FW) | cmp -s - $@ || echo $(FW) > $@
+
+assemble.hexdump: $(FW).c fw.name $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/start.s -o start.o
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/putchar.s -o putchar.o
 	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c $(RV)/print.c -o print.o
@@ -102,9 +106,10 @@ clean:
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin
-	rm -f start.o putchar.o print.o $(FW).o fw.elf fw.bin assemble.hexdump
+	rm -f start.o putchar.o print.o $(FW).o fw.elf fw.bin fw.name assemble.hexdump
 	rm -rf build crt_psram.o coremark.elf coremark.img
 
 .SECONDARY:
-.PHONY: all prog clean sim soc soc-prog load
+FORCE:
+.PHONY: all prog clean sim soc soc-prog load FORCE
 
