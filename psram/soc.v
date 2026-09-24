@@ -7,6 +7,7 @@
 `include "riscv.v"
 `include "psram_spi.v"
 `include "psram_bus.v"
+`include "uart_rx.v"
 
 module PSRAM_SOC (
     input            CLK,
@@ -66,6 +67,7 @@ module PSRAM_SOC (
     localparam IO_UART_DAT_bit  = 1;  // W data to send (8 bits)
     localparam IO_UART_CNTL_bit = 2;  // R status. bit 9: busy sending
     localparam IO_COUNTER_bit   = 3;  // R free-running clk counter
+    localparam IO_UART_RX_bit   = 4;  // R {valid, byte}; reading clears valid
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
@@ -75,7 +77,8 @@ module PSRAM_SOC (
 
     wire [31:0] IO_rdata =
         mem_wordaddr[IO_UART_CNTL_bit] ? {22'b0, !uart_ready, 9'b0} :
-        mem_wordaddr[IO_COUNTER_bit]   ? counter
+        mem_wordaddr[IO_COUNTER_bit]   ? counter :
+        mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_read}
                                        : 32'b0;
     assign mem_rdata = isPSRAM ? psram_rdata :
                        isRAM   ? RAM_rdata   : IO_rdata;
@@ -120,6 +123,22 @@ module PSRAM_SOC (
     );
 
     free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));
+
+    // One-byte receive buffer. The CPU samples IO data a cycle after the load
+    // strobe, so the register value is latched on the strobe, which also clears it.
+    wire [7:0] rx_data;
+    wire       rx_valid;
+    reg        rx_full = 1'b0;
+    reg  [8:0] rx_read;
+    wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
+
+    UART_RX #(.CLKS_PER_BIT(12)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+
+    always @(posedge clk) begin
+        if (rx_rd) rx_read <= {rx_full, rx_data};
+        if (rx_valid) rx_full <= 1'b1;
+        else if (rx_rd) rx_full <= 1'b0;
+    end
 
     PSRAM_BUS psram(
         .clk(clk),
