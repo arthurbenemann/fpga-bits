@@ -363,18 +363,38 @@ endmodule
 // One 32x32 multiplier (4 DSPs) is shared by the three products, so an iteration
 // takes 3 cycles: Zr*Zr, Zi*Zi, then Zr*Zi and the update. `iteration` counts
 // down from max_it and is 0 when C stayed in the set.
+// Points inside the main cardioid or the period-2 bulb never escape, so they are
+// found first with 4 more products and skip the iterations:
+//   q = (x-1/4)^2 + y^2, cardioid: q (q + x - 1/4) <= y^2/4, bulb: (x+1)^2 + y^2 <= 1/16
 module Mandelbrot #(parameter mandel_shift=27)
                     (input clk, input resetn, input valid, output reg ready,
                      input signed [31:0] Cr, input signed [31:0] Ci,
                      input [15:0] max_it, output reg [15:0] iteration);
 
-    reg signed [31:0] Zr, Zi;
-    reg        [35:0] Zrr, Zii;     // squares, up to 16*16
-    reg        [1:0]  phase;
+    localparam ONE = 1 << mandel_shift;
 
-    wire signed [63:0] p = (phase == 1 ? Zi : Zr) * (phase == 0 ? Zr : Zi);
+    reg signed [31:0] Zr, Zi, q;
+    reg        [35:0] Zrr, Zii;     // squares, up to 16*16
+    reg        [2:0]  phase;        // 0-2: iteration, 4-7: cardioid/bulb check
+    reg               cardioid;
+
+    wire signed [31:0] a = Cr - ONE/4;
+    wire signed [31:0] b = Cr + ONE;
+    reg  signed [31:0] ma, mb;
+    always @* case(phase)
+        0:       begin ma = Zr; mb = Zr;    end
+        2:       begin ma = Zr; mb = Zi;    end
+        4:       begin ma = a;  mb = a;     end
+        6:       begin ma = q;  mb = q + a; end
+        7:       begin ma = b;  mb = b;     end
+        default: begin ma = Zi; mb = Zi;    end   // 1, 5
+    endcase
+    wire signed [63:0] p = ma * mb;
+    wire        [35:0] sq = p >>> mandel_shift;
     wire signed [31:0] Zri = p >>> (mandel_shift-1);   // 2*Zr*Zi
     wire out_of_set = {1'b0, Zrr} + Zii > (4 << mandel_shift);
+    // The check's products fit when |Cr|, |Ci| < 2; farther out the point escapes anyway.
+    wire near = (&Cr[31:28] | ~|Cr[31:28]) & (&Ci[31:28] | ~|Ci[31:28]);
 
     always @(posedge clk) begin
         if(!resetn) begin
@@ -383,13 +403,13 @@ module Mandelbrot #(parameter mandel_shift=27)
             if (valid) begin
                 Zr <= Cr; Zi <= Ci;
                 iteration <= max_it;
-                phase <= 0;
+                phase <= near ? 4 : 0;
                 ready <= 0;
             end
         end else case(phase)
-            0: begin Zrr <= p >>> mandel_shift; phase <= 1; end
-            1: begin Zii <= p >>> mandel_shift; phase <= 2; end
-            default: begin
+            0: begin Zrr <= sq; phase <= 1; end
+            1: begin Zii <= sq; phase <= 2; end
+            2: begin
                 if(!out_of_set & iteration>0) begin
                     Zr <= Zrr - Zii + Cr;
                     Zi <= Zri + Ci;
@@ -398,6 +418,16 @@ module Mandelbrot #(parameter mandel_shift=27)
                 end else begin
                     ready <= 1;
                 end
+            end
+            4: begin q <= sq; phase <= 5; end
+            5: begin q <= q + sq; Zii <= sq; phase <= 6; end
+            6: begin cardioid <= p <= $signed({1'b0, Zii, 25'b0}); phase <= 7; end
+            default: begin
+                if (cardioid | sq + Zii <= ONE/16) begin
+                    iteration <= 0;
+                    ready <= 1;
+                end else
+                    phase <= 0;
             end
         endcase
     end

@@ -67,6 +67,14 @@ void put_color(int i)
 // it=100, 1272175 kcycles
 
 int mandel_SW(int Cr, int Ci, int iter){ 
+    // Main cardioid and period-2 bulb never escape: same check as the accelerator.
+    if (Cr >= -2 * mandel_mul && Cr < 2 * mandel_mul && Ci >= -2 * mandel_mul && Ci < 2 * mandel_mul) {
+        int64_t a = Cr - mandel_mul / 4, b = Cr + mandel_mul;
+        int64_t y2 = (int64_t)Ci * Ci >> mandel_shift;
+        int64_t q = (a * a >> mandel_shift) + y2;
+        if (q * (q + a) <= y2 << (mandel_shift - 2) || (b * b >> mandel_shift) + y2 <= mandel_mul / 16)
+            return 0;
+    }
     int Zr = Cr;
     int Zi = Ci;
     while (iter > 0){
