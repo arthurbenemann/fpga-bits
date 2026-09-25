@@ -57,7 +57,10 @@ module Memory (
 
 endmodule
 
-module Processor (
+// MUL=1: MUL/MULH/MULHSU/MULHU in one cycle (4 SB_MAC16s with synth_ice40 -dsp).
+// DIV=1: DIV/DIVU/REM/REMU, one quotient bit per cycle (~340 LCs). Off by default:
+// MUL alone is Zmmul (-march=rv32i_zmmul), and CoreMark runs no faster with DIV.
+module Processor #(parameter MUL = 1, DIV = 0) (
     input 	            clk,
     input 	            resetn,
     output     [31:0]   mem_addr, 
@@ -113,7 +116,7 @@ module Processor (
 	            rs2 <= RegisterBank[rs2Id];
 	            state <= EXECUTE;
 	        end
-	        EXECUTE: begin
+	        EXECUTE: if(!divBusy) begin
                 if(!isSYSTEM) begin
 	                PC <= nextPC;
                 end
@@ -165,13 +168,15 @@ module Processor (
     wire [31:0] PCplus4 = PC+4;
     
     // Register update control
-    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore && !isLoad)|| (state == WAIT_DATA && !mem_rbusy); // isLoad only to help with sim viz
+    wire writeBackEn = (state == EXECUTE && !isBranch && ! isStore && !isLoad && !divBusy)|| (state == WAIT_DATA && !mem_rbusy); // isLoad only to help with sim viz
 
 
     wire [31:0] writeBackData = (isJAL | isJALR)? PCplus4:
                                          isAUIPC? PCplusImm:         
                                           isLoad? LOAD_data:
                                            isLUI? Uimm:
+                                           isMul? mulOut:
+                                           isDiv? divOut:
                                                   aluOut; 
 
     // PC update
@@ -315,6 +320,44 @@ module Processor (
         endcase
     end
    
+
+    // M extension (funct7 = 0000001)
+    wire isMul = MUL && isALUreg && funct7[0] && !funct3[2];
+    wire isDiv = DIV && isALUreg && funct7[0] &&  funct3[2];
+
+    // MUL: low word. MULH: s*s, MULHSU: s*u, MULHU: u*u, high word. Unsigned product
+    // (4 SB_MAC16s), then signed high word = hi - (rs1<0 ? rs2 : 0) - (rs2<0 ? rs1 : 0).
+    wire [63:0] mulP  = rs1 * rs2;
+    wire [31:0] mulHi = mulP[63:32] - ({32{funct3[1:0] != 2'b11 & rs1[31]}} & rs2)
+                                    - ({32{funct3[1:0] == 2'b01 & rs2[31]}} & rs1);
+    wire [31:0] mulOut = |funct3[1:0] ? mulHi : mulP[31:0];
+
+    // DIV/DIVU/REM/REMU on magnitudes, restoring, one bit per cycle: EXECUTE is held
+    // 33 cycles (load, then 32 steps). The dividend shifts out of quo as the quotient
+    // shifts in. Divide by zero gives quo = ~0 and rem = dividend, as the spec wants.
+    reg  [31:0] quo, rem;
+    reg  [5:0]  divCnt;
+    wire        divSigned = !funct3[0];
+    wire        dvsrPos = !(divSigned & rs2[31]);   // subtract rs2, or add it if negative
+    wire [33:0] divDiff = {1'b0, rem, quo[31]} + {2'b11, rs2 ^ {32{dvsrPos}}} + dvsrPos;
+    wire        divBusy = isDiv && divCnt != 0;
+    wire        divNeg  = divSigned & (funct3[1] ? rs1[31] : (rs1[31] ^ rs2[31]) & |rs2);
+    wire [31:0] divRes  = funct3[1] ? rem : quo;
+    wire [31:0] divOut  = divNeg ? -divRes : divRes;
+
+    always @(posedge clk) begin
+        if(state == FETCH_REGS) divCnt <= 33;
+        if(state == EXECUTE && divBusy) begin
+            divCnt <= divCnt - 1;
+            if(divCnt == 33) begin
+                quo  <= divSigned & rs1[31] ? -rs1 : rs1;
+                rem  <= 0;
+            end else begin
+                quo  <= {quo[30:0], !divDiff[33]};
+                rem  <= divDiff[33] ? {rem[30:0], quo[31]} : divDiff[31:0];
+            end
+        end
+    end
 
     //`ifdef BENCH
     `ifdef SKIP_DEBUG

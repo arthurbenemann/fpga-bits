@@ -45,9 +45,9 @@ assemble:  #hacky, needs to be cleanned up
 	hexdump -e '"%08x\n"' assemble.bin > assemble.hexdump
 
 
-LIBGCC := $(shell riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -print-libgcc-file-name)
+LIBGCC := $(shell riscv64-unknown-elf-gcc -march=rv32i_zmmul -mabi=ilp32 -print-libgcc-file-name)
 PICOLIBC_INC := /usr/lib/picolibc/riscv64-unknown-elf/include
-CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -Wl,--no-relax -I$(PICOLIBC_INC)
+CFLAGS := -march=rv32i_zmmul -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -Wl,--no-relax -I$(PICOLIBC_INC)
 
 compile:
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax start.s -o start.o

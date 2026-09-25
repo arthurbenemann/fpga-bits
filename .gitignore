@@ -130,3 +130,4 @@ psram/bench.vcd
 psram/build/
 *.pyc
 psram/fw.name
+psram/march.name

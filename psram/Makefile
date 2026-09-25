@@ -49,8 +49,8 @@ CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/l
 
 soc: soc.bin
 
-soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/riscv.v assemble.hexdump
-	yosys -ql soc.yslog -p 'read_verilog -I$(RV) soc.v; synth_ice40 -top PSRAM_SOC -json $@'
+soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump
+	yosys -ql soc.yslog -p 'read_verilog -I$(RV) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
 
 soc.asc: soc.json icebreaker.pcf
 	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq 12 --asc $@ --pcf icebreaker.pcf --json $<
@@ -75,23 +75,32 @@ assemble.hexdump: $(FW).c fw.name $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(
 	hexdump --no-squeezing -e '"%08x\n"' fw.bin > $@
 
 # Programs that run from PSRAM, uploaded by the bootloader: make load IMG=coremark.img
-PICOLIBC := /usr/lib/picolibc/riscv64-unknown-elf/lib/rv32i/ilp32
+# MARCH: rv32i_zmmul, rv32im (CPU built with DIV=1) or rv32i.
+MARCH    := rv32i_zmmul
+MULTI    := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-multi-directory)
+PICOLIBC := /usr/lib/picolibc/riscv64-unknown-elf/lib/$(MULTI)
+PLIBGCC  := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-libgcc-file-name)
+PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS))
 IMG      := coremark.img
 CM       := coremark
 CM_SRC   := $(wildcard $(CM)/*.c)
 CM_OBJ   := $(patsubst $(CM)/%.c,build/cm_%.o,$(CM_SRC))
-CM_FLAGS := $(CFLAGS) -I$(CM) -DPERFORMANCE_RUN=1 -DITERATIONS=0 -DFLAGS_STR='"$(CFLAGS)"'
+CM_FLAGS := $(PFLAGS) -I$(CM) -DPERFORMANCE_RUN=1 -DITERATIONS=0 -DFLAGS_STR='"$(PFLAGS)"'
+
+# Records the last MARCH built, like fw.name, so switching it rebuilds.
+march.name: FORCE
+	@echo $(MARCH) | cmp -s - $@ || echo $(MARCH) > $@
 
 crt_psram.o: crt_psram.s
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
 
-build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h)
+build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h) march.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(CM_FLAGS) -c $< -o $@
 
-coremark.img: crt_psram.o $(CM_OBJ) psram.ld
+coremark.img: crt_psram.o $(CM_OBJ) psram.ld march.name
 	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax crt_psram.o $(CM_OBJ) \
-		--start-group $(PICOLIBC)/libc.a $(PICOLIBC)/libm.a $(LIBGCC) --end-group -o coremark.elf
+		--start-group $(PICOLIBC)/libc.a $(PICOLIBC)/libm.a $(PLIBGCC) --end-group -o coremark.elf
 	riscv64-unknown-elf-objcopy -O binary coremark.elf $@
 
 load: $(IMG)
@@ -107,7 +116,7 @@ clean:
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin
 	rm -f start.o putchar.o print.o $(FW).o fw.elf fw.bin fw.name assemble.hexdump
-	rm -rf build crt_psram.o coremark.elf coremark.img
+	rm -rf build crt_psram.o coremark.elf coremark.img march.name
 
 .SECONDARY:
 FORCE:
