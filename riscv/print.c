@@ -14,7 +14,7 @@ int puts(const char* s) {
 }
 
 void print_dec(int val) {
-   char buffer[255];
+   char buffer[10];    // 2^31 has 10 digits
    char *p = buffer;
    if(val < 0) {
       putchar('-');

@@ -359,44 +359,47 @@ module free_cnt(input clk, input resetn, output [31:0] cnt);
     end
 endmodule
 
-module Mandelbrot #(parameter mandel_shift=10, max_it=31)
+// Mandelbrot iteration count for one point C, in Q4.27 fixed point (|values| < 16).
+// One 32x32 multiplier (4 DSPs) is shared by the three products, so an iteration
+// takes 3 cycles: Zr*Zr, Zi*Zi, then Zr*Zi and the update. `iteration` counts
+// down from max_it and is 0 when C stayed in the set.
+module Mandelbrot #(parameter mandel_shift=27)
                     (input clk, input resetn, input valid, output reg ready,
-                     input signed [31:0] Cr, input signed [31:0] Ci, output reg [7:0] iteration);    
-    
-    // Local registers
-    reg signed [31:0] Zr = 0, Zi = 0;
+                     input signed [31:0] Cr, input signed [31:0] Ci,
+                     input [15:0] max_it, output reg [15:0] iteration);
 
-    // Intermediate results
-    wire signed [31:0] Zrr, Zii, Zri;
-    assign Zrr = (Zr*Zr) >>> mandel_shift;
-    assign Zii = (Zi*Zi) >>> mandel_shift;
-    assign Zri = (Zr*Zi) >>> (mandel_shift-1);
-    wire out_of_set = (Zrr + Zii) > (4<<mandel_shift);
+    reg signed [31:0] Zr, Zi;
+    reg        [35:0] Zrr, Zii;     // squares, up to 16*16
+    reg        [1:0]  phase;
+
+    wire signed [63:0] p = (phase == 1 ? Zi : Zr) * (phase == 0 ? Zr : Zi);
+    wire signed [31:0] Zri = p >>> (mandel_shift-1);   // 2*Zr*Zi
+    wire out_of_set = {1'b0, Zrr} + Zii > (4 << mandel_shift);
 
     always @(posedge clk) begin
         if(!resetn) begin
-            ready <=1;
-        end else begin
-            //$display("valid %d, ready %d, it %d",valid,ready,iteration);
-            if(ready) begin   
-                if (valid) begin
-                    Zr=Cr;Zi=Ci; 
-                    iteration<=max_it;
-                    ready<=0;
-                    //$display("start %h Cr, %h Ci",Cr,Ci);
-                end 
-            end else begin
-                //$display("Zr %.2f \tZi %.2f \tCr %.2f \tCi %.2f\t out_of_set %d", Zr/1024.0,Zi/1024.0,Cr/1024.0,Ci/1024.0,out_of_set);
+            ready <= 1;
+        end else if(ready) begin
+            if (valid) begin
+                Zr <= Cr; Zi <= Ci;
+                iteration <= max_it;
+                phase <= 0;
+                ready <= 0;
+            end
+        end else case(phase)
+            0: begin Zrr <= p >>> mandel_shift; phase <= 1; end
+            1: begin Zii <= p >>> mandel_shift; phase <= 2; end
+            default: begin
                 if(!out_of_set & iteration>0) begin
                     Zr <= Zrr - Zii + Cr;
                     Zi <= Zri + Ci;
                     iteration <= iteration-1;
+                    phase <= 0;
                 end else begin
-                    ready <=1;
-                    //$display("remaining iterations %d", iteration);
+                    ready <= 1;
                 end
-            end   
-        end     
+            end
+        endcase
     end
 endmodule
 
@@ -416,11 +419,12 @@ module SOC (
     wire resetn;
     wire clk;
 
-    Mandelbrot mb(.clk(clk), .resetn(resetn),.valid(mandel_valid),.ready(mandel_ready),.Cr(Cr),.Ci(Ci),.iteration(mandel_iteration));
+    Mandelbrot mb(.clk(clk), .resetn(resetn),.valid(mandel_valid),.ready(mandel_ready),.Cr(Cr),.Ci(Ci),.max_it(mandel_max_it),.iteration(mandel_iteration));
     wire mandel_valid = isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CTRL];
     reg signed [31:0] Cr, Ci;
     wire mandel_ready;
-    wire [7:0] mandel_iteration;
+    wire [15:0] mandel_iteration;
+    reg  [15:0] mandel_max_it = 31;
 
 
     // ## DEBUG
@@ -437,6 +441,9 @@ module SOC (
         end
         if(isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CI]) begin
 	        Ci <= mem_wdata;
+        end
+        if(isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_IT]) begin
+	        mandel_max_it <= mem_wdata;
         end
     end
 
@@ -493,7 +500,7 @@ module SOC (
     localparam IO_MANDEL_CTRL   = 4;
     localparam IO_MANDEL_CR     = 5;
     localparam IO_MANDEL_CI     = 6;
-    localparam IO_MANDEL_IT     = 7;  
+    localparam IO_MANDEL_IT     = 7;     // R iterations left, W max iterations
     localparam IO_UART_RX_bit   = 8;     // R {valid, byte}; reading clears valid
 
 
