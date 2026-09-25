@@ -11,12 +11,14 @@
 .section .text
 .globl putchar
 
+# Waits for the previous byte to go out, then starts this one and returns,
+# so the caller's work overlaps the transmission.
 putchar:
-   sw a0, IO_UART_DAT(gp)
    li t0, 1<<9
 .L0:  
    lw t1, IO_UART_CNTL(gp)
    and t1, t1, t0
    bnez t1, .L0
+   sw a0, IO_UART_DAT(gp)
   ret
   

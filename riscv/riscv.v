@@ -514,7 +514,7 @@ module SOC (
     wire uart_ready;
 
     corescore_emitter_uart #(
-        .clk_divider(12)     // Fin=12Mhz, baud =12Mhz/6 = 2Mbaud
+        .clk_divider(4)      // 12 MHz / 4 = 3 Mbaud (exact on the FT2232H)
     ) UART(
         .i_clk(clk),
         .i_rst(resetn),
@@ -535,7 +535,7 @@ module SOC (
     reg  [8:0] rx_read;
     wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
 
-    UART_RX #(.CLKS_PER_BIT(12)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+    UART_RX #(.CLKS_PER_BIT(4)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
 
     always @(posedge clk) begin
         if (rx_rd) rx_read <= {rx_full, rx_data};

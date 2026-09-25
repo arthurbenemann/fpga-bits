@@ -12,7 +12,7 @@ module corescore_emitter_uart
 
    localparam START_VALUE = clk_divider-2;
    
-   localparam WIDTH = $clog2(START_VALUE);
+   localparam WIDTH = $clog2(START_VALUE+1);   // bits to hold START_VALUE itself
    
    reg [WIDTH:0]  cnt = 0;
    

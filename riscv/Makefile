@@ -2,7 +2,7 @@ PROJ = riscv
 
 all: $(PROJ).rpt $(PROJ).bin
 
-$(PROJ).json: $(PROJ).v uart_rx.v assemble.hexdump
+$(PROJ).json: $(PROJ).v uart_rx.v emitter_uart.v clockworks.v assemble.hexdump
 	yosys -ql $(PROJ).yslog -p 'synth_ice40 -dsp -top SOC -json $@' $<
 
 $(PROJ).asc: $(PROJ).json icebreaker.pcf
@@ -47,7 +47,7 @@ assemble:  #hacky, needs to be cleanned up
 
 LIBGCC := $(shell riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -print-libgcc-file-name)
 PICOLIBC_INC := /usr/lib/picolibc/riscv64-unknown-elf/include
-CFLAGS := -march=rv32i -mabi=ilp32 -fno-pic -fno-stack-protector -w -Wl,--no-relax -I$(PICOLIBC_INC)
+CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -Wl,--no-relax -I$(PICOLIBC_INC)
 
 compile:
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax start.s -o start.o
