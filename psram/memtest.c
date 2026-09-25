@@ -1,3 +1,5 @@
+// PSRAM test, run from PSRAM itself (load.py memtest.img). It tests everything
+// above its own image, up to the end of the 8 MB; its own few KB stay untested
 #include <stdint.h>
 
 #define IO_BASE      0x400000
@@ -7,18 +9,20 @@
 #define IO_IN(port)       *(volatile uint32_t *)(IO_BASE + port)
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
 
-#define PSRAM_BASE 0x800000u
-#define PSRAM_SIZE (8u << 20)
+#define PSRAM_END  0x1000000u
 #define CLK_KHZ    12000
 
 int printf(const char *fmt, ...);
 int putchar(int c);
 
-static volatile uint32_t *const psram32  = (volatile uint32_t *)PSRAM_BASE;
-static volatile uint16_t *const psram16  = (volatile uint16_t *)PSRAM_BASE;
-static volatile int16_t  *const psram16s = (volatile int16_t  *)PSRAM_BASE;
-static volatile uint8_t  *const psram8   = (volatile uint8_t  *)PSRAM_BASE;
-static volatile int8_t   *const psram8s  = (volatile int8_t   *)PSRAM_BASE;
+extern char _end[];                                 // end of this program (psram.ld)
+#define BASE (((uint32_t)_end + 0xFFF) & ~0xFFFu)   // first tested byte
+
+#define psram32  ((volatile uint32_t *)BASE)
+#define psram16  ((volatile uint16_t *)BASE)
+#define psram16s ((volatile int16_t  *)BASE)
+#define psram8   ((volatile uint8_t  *)BASE)
+#define psram8s  ((volatile int8_t   *)BASE)
 
 static uint32_t errors;
 
@@ -68,13 +72,13 @@ static void test_exec(void)
     volatile uint32_t *code = psram32 + 0x400;
     code[0] = 0x00150513u;
     code[1] = 0x00008067u;
-    int (*fn)(int) = (int (*)(int))(PSRAM_BASE + 0x1000);
+    int (*fn)(int) = (int (*)(int))(code);
     check("exec", fn(41), 42);
 }
 
 int main()
 {
-    printf("\r\nPSRAM mapped at %x, %d KB\r\n", PSRAM_BASE, PSRAM_SIZE >> 10);
+    printf("\r\nPSRAM test %x..%x, %d KB\r\n", BASE, PSRAM_END, (PSRAM_END - BASE) >> 10);
 
     for (uint32_t pass = 0;; ++pass) {
         uint32_t invert = (pass & 1) ? 0xFFFFFFFFu : 0;
@@ -84,19 +88,19 @@ int main()
         test_exec();
 
         uint32_t t0 = IO_IN(IO_COUNTER);
-        for (uint32_t a = 0; a < PSRAM_SIZE; a += 4) {
+        for (uint32_t a = BASE; a < PSRAM_END; a += 4) {
             if ((a & 0x7FFFF) == 0) putchar('.');
-            psram32[a >> 2] = pattern(a) ^ invert;
+            *(volatile uint32_t *)a = pattern(a) ^ invert;
         }
         uint32_t t1 = IO_IN(IO_COUNTER);
 
-        for (uint32_t a = 0; a < PSRAM_SIZE; a += 4) {
+        for (uint32_t a = BASE; a < PSRAM_END; a += 4) {
             if ((a & 0x7FFFF) == 0) putchar('.');
-            check("word", psram32[a >> 2], pattern(a) ^ invert);
+            check("word", *(volatile uint32_t *)a, pattern(a) ^ invert);
         }
         uint32_t t2 = IO_IN(IO_COUNTER);
 
-        printf("\r\npass %d: %d errors (subword, exec, 8 MB), write %d ms, read %d ms\r\n",
+        printf("\r\npass %d: %d errors (subword, exec, words), write %d ms, read %d ms\r\n",
                pass, errors, (t1 - t0) / CLK_KHZ, (t2 - t1) / CLK_KHZ);
         IO_OUT(IO_LEDS, errors ? 0x1F : pass);
     }

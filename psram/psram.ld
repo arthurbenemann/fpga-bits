@@ -13,6 +13,7 @@ SECTIONS
         *(.rodata .rodata.* .srodata .srodata.*)
         *(.data .data.* .sdata .sdata.*)
         *(.sbss .sbss.* .bss .bss.* COMMON)
+        _end = .;               /* first free PSRAM byte */
     } >PSRAM
     /DISCARD/ : { *(.eh_frame .eh_frame_hdr) }
 }

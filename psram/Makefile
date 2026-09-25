@@ -40,10 +40,10 @@ sudo-prog: $(PROJ).bin
 sim: $(PROJ).out bench_iverilog.v
 	vvp -n $<
 
-# RISC-V SoC with PSRAM mapped at 0x800000 (soc.v). BRAM holds $(FW): the UART
-# bootloader by default, or FW=memtest. The CPU and firmware runtime come from ../riscv.
+# RISC-V SoC with PSRAM mapped at 0x800000 (soc.v). BRAM holds the UART bootloader
+# (boot.c); programs are uploaded into PSRAM with load.py. The CPU and firmware
+# runtime come from ../riscv.
 RV     = ../riscv
-FW     = boot
 LIBGCC := $(shell riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -print-libgcc-file-name)
 CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/lib/picolibc/riscv64-unknown-elf/include
 
@@ -61,20 +61,17 @@ soc.bin: soc.asc
 soc-prog: soc.bin
 	iceprog $<
 
-# Records the last FW built; rewritten only when FW changes, so switching FW rebuilds.
-fw.name: FORCE
-	@echo $(FW) | cmp -s - $@ || echo $(FW) > $@
-
-assemble.hexdump: $(FW).c fw.name $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
+assemble.hexdump: boot.c $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/start.s -o start.o
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/putchar.s -o putchar.o
 	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c $(RV)/print.c -o print.o
-	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c $(FW).c -o $(FW).o
-	riscv64-unknown-elf-ld -T $(RV)/bram.ld -m elf32lriscv -nostdlib --no-relax --gc-sections start.o print.o putchar.o $(FW).o $(LIBGCC) -o fw.elf
+	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c boot.c -o boot.o
+	riscv64-unknown-elf-ld -T $(RV)/bram.ld -m elf32lriscv -nostdlib --no-relax --gc-sections start.o print.o putchar.o boot.o $(LIBGCC) -o fw.elf
 	riscv64-unknown-elf-objcopy -O binary fw.elf fw.bin
 	hexdump --no-squeezing -e '"%08x\n"' fw.bin > $@
 
-# Programs that run from PSRAM, uploaded by the bootloader: make load IMG=coremark.img
+# Programs that run from PSRAM, uploaded by the bootloader:
+#   make load IMG=mandel.img | memtest.img | coremark.img
 # MARCH: rv32i_zmmul, rv32im (CPU built with DIV=1) or rv32i.
 MARCH    := rv32i_zmmul
 MULTI    := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-multi-directory)
@@ -87,7 +84,7 @@ CM_SRC   := $(wildcard $(CM)/*.c)
 CM_OBJ   := $(patsubst $(CM)/%.c,build/cm_%.o,$(CM_SRC))
 CM_FLAGS := $(PFLAGS) -I$(CM) -DPERFORMANCE_RUN=1 -DITERATIONS=0 -DFLAGS_STR='"$(PFLAGS)"'
 
-# Records the last MARCH built, like fw.name, so switching it rebuilds.
+# Records the last MARCH built, so switching it rebuilds.
 march.name: FORCE
 	@echo $(MARCH) | cmp -s - $@ || echo $(MARCH) > $@
 
@@ -103,6 +100,25 @@ coremark.img: crt_psram.o $(CM_OBJ) psram.ld march.name
 		--start-group $(PICOLIBC)/libc.a $(PICOLIBC)/libm.a $(PLIBGCC) --end-group -o coremark.elf
 	riscv64-unknown-elf-objcopy -O binary coremark.elf $@
 
+# Plain programs: one .c here or in ../riscv, plus the ../riscv printf/putchar.
+RT_OBJ := crt_psram.o build/print.o build/putchar.o
+
+build/%.o: %.c march.name
+	@mkdir -p build
+	riscv64-unknown-elf-gcc $(PFLAGS) -c $< -o $@
+
+build/%.o: $(RV)/%.c march.name
+	@mkdir -p build
+	riscv64-unknown-elf-gcc $(PFLAGS) -c $< -o $@
+
+build/putchar.o: $(RV)/putchar.s
+	@mkdir -p build
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
+
+%.img: build/%.o $(RT_OBJ) psram.ld
+	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax $(RT_OBJ) $< $(PLIBGCC) -o $*.elf
+	riscv64-unknown-elf-objcopy -O binary $*.elf $@
+
 load: $(IMG)
 	./load.py $(IMG)
 
@@ -115,8 +131,8 @@ clean:
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin
-	rm -f start.o putchar.o print.o $(FW).o fw.elf fw.bin fw.name assemble.hexdump
-	rm -rf build crt_psram.o coremark.elf coremark.img march.name
+	rm -f start.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump
+	rm -rf build crt_psram.o *.elf *.img march.name
 
 .SECONDARY:
 FORCE:

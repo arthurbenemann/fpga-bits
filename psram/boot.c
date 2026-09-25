@@ -6,7 +6,7 @@
 #define IO_BASE      0x400000
 #define IO_UART_DAT  8
 #define IO_UART_CNTL 16
-#define IO_UART_RX   64
+#define IO_UART_RX   1024
 
 #define IO_IN(port)       *(volatile uint32_t *)(IO_BASE + port)
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
@@ -29,7 +29,7 @@ static void tx_hex(uint32_t v)
     for (int i = 28; i >= 0; i -= 4) tx("0123456789ABCDEF"[(v >> i) & 15]);
 }
 
-// Must keep up with 1 Mbaud: a byte every 120 CPU cycles.
+// Must keep up with 3 Mbaud: a byte every 40 CPU cycles.
 static uint32_t rx(void)
 {
     uint32_t c;

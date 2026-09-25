@@ -3,15 +3,18 @@
 
 The board must be sitting in the bootloader: just flashed, after the reset button,
 or after the previous program returned. Output is streamed until the program
-returns to the bootloader, or until --timeout seconds pass.
+returns to the bootloader, or until --timeout seconds pass. Keys typed meanwhile
+go to the program; Ctrl-C quits.
 """
 import argparse
 import glob
 import os
 import re
+import select
 import sys
 import termios
 import time
+import tty
 
 BANNER = b"boot: waiting for image"
 
@@ -37,7 +40,7 @@ def open_port(dev):
     cc[termios.VMIN], cc[termios.VTIME] = 0, 1          # reads return after 0.1 s idle
     cflag = termios.CS8 | termios.CREAD | termios.CLOCAL
     termios.tcsetattr(fd, termios.TCSANOW,
-                      [0, 0, cflag, 0, termios.B1000000, termios.B1000000, cc])
+                      [0, 0, cflag, 0, termios.B3000000, termios.B3000000, cc])
     termios.tcflush(fd, termios.TCIOFLUSH)
     return fd
 
@@ -57,11 +60,28 @@ def main():
         payload = payload[os.write(fd, payload):]
     termios.tcdrain(fd)
 
+    keys = sys.stdin.fileno() if sys.stdin.isatty() else None
+    if keys is not None:
+        saved = termios.tcgetattr(keys)
+        tty.setcbreak(keys)                             # unbuffered, no echo; Ctrl-C still works
+    try:
+        run(fd, keys, img, args.timeout)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if keys is not None:
+            termios.tcsetattr(keys, termios.TCSADRAIN, saved)
+
+
+def run(fd, keys, img, timeout):
     out = b""
     checked = None                                      # end of the checksum line
-    deadline = time.time() + args.timeout
+    deadline = time.time() + timeout
     while time.time() < deadline:
-        chunk = os.read(fd, 4096)
+        ready = select.select([fd] + ([keys] if keys is not None else []), [], [], 0.1)[0]
+        if keys in ready:
+            os.write(fd, os.read(keys, 64))
+        chunk = os.read(fd, 4096) if fd in ready else b""
         if not chunk:
             continue
         out += chunk

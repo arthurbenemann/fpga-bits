@@ -1,9 +1,8 @@
 // RISC-V core from ../riscv with the PSRAM mapped into its address space.
 //   0x000000-0x3FFFFF  BRAM (6 KB populated)
-//   0x400000-0x7FFFFF  IO page
+//   0x400000-0x7FFFFF  IO page, same map as the riscv/ SOC
 //   0x800000-0xFFFFFF  PSRAM, 8 MB
-// Build with -I../riscv; riscv.v also defines its own SOC/Mandelbrot tops, which
-// go unused here.
+// Build with -I../riscv; riscv.v also defines its own SOC top, which goes unused here.
 `include "riscv.v"
 `include "psram_spi.v"
 `include "psram_bus.v"
@@ -66,7 +65,11 @@ module PSRAM_SOC (
     localparam IO_UART_DAT_bit  = 1;  // W data to send (8 bits)
     localparam IO_UART_CNTL_bit = 2;  // R status. bit 9: busy sending
     localparam IO_COUNTER_bit   = 3;  // R free-running clk counter
-    localparam IO_UART_RX_bit   = 4;  // R {valid, byte}; reading clears valid
+    localparam IO_MANDEL_CTRL   = 4;  // W start, R ready. Same map as the riscv/ SOC,
+    localparam IO_MANDEL_CR     = 5;  //   so mandel.c runs on either
+    localparam IO_MANDEL_CI     = 6;
+    localparam IO_MANDEL_IT     = 7;  // R iterations left, W max iterations
+    localparam IO_UART_RX_bit   = 8;  // R {valid, byte}; reading clears valid
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
@@ -77,7 +80,9 @@ module PSRAM_SOC (
     wire [31:0] IO_rdata =
         mem_wordaddr[IO_UART_CNTL_bit] ? {22'b0, !uart_ready, 9'b0} :
         mem_wordaddr[IO_COUNTER_bit]   ? counter :
-        mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_read}
+        mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_read} :
+        mem_wordaddr[IO_MANDEL_CTRL]   ? mandel_ready :
+        mem_wordaddr[IO_MANDEL_IT]     ? mandel_iteration
                                        : 32'b0;
     assign mem_rdata = isPSRAM ? psram_rdata :
                        isRAM   ? RAM_rdata   : IO_rdata;
@@ -108,10 +113,25 @@ module PSRAM_SOC (
             LEDS <= mem_wdata;
     end
 
+    // Mandelbrot accelerator (riscv.v)
+    reg  signed [31:0] Cr, Ci;
+    reg         [15:0] mandel_max_it = 31;
+    wire        [15:0] mandel_iteration;
+    wire               mandel_ready;
+
+    Mandelbrot mb(.clk(clk), .resetn(resetn), .valid(isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CTRL]),
+                  .ready(mandel_ready), .Cr(Cr), .Ci(Ci), .max_it(mandel_max_it), .iteration(mandel_iteration));
+
+    always @(posedge clk) begin
+        if (isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CR]) Cr <= mem_wdata;
+        if (isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CI]) Ci <= mem_wdata;
+        if (isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_IT]) mandel_max_it <= mem_wdata;
+    end
+
     wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
 
     corescore_emitter_uart #(
-        .clk_divider(12)     // 12 MHz / 12 = 1 Mbaud
+        .clk_divider(4)      // 12 MHz / 4 = 3 Mbaud (exact on the FT2232H)
     ) UART(
         .i_clk(clk),
         .i_rst(resetn),
@@ -131,7 +151,7 @@ module PSRAM_SOC (
     reg  [8:0] rx_read;
     wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
 
-    UART_RX #(.CLKS_PER_BIT(12)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+    UART_RX #(.CLKS_PER_BIT(4)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
 
     always @(posedge clk) begin
         if (rx_rd) rx_read <= {rx_full, rx_data};
