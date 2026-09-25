@@ -2,7 +2,7 @@ PROJ = riscv
 
 all: $(PROJ).rpt $(PROJ).bin
 
-$(PROJ).json: $(PROJ).v
+$(PROJ).json: $(PROJ).v uart_rx.v assemble.hexdump
 	yosys -ql $(PROJ).yslog -p 'synth_ice40 -top SOC -json $@' $<
 
 $(PROJ).asc: $(PROJ).json icebreaker.pcf

@@ -49,7 +49,7 @@ CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/l
 
 soc: soc.bin
 
-soc.json: soc.v psram_spi.v psram_bus.v uart_rx.v $(RV)/riscv.v assemble.hexdump
+soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/riscv.v assemble.hexdump
 	yosys -ql soc.yslog -p 'read_verilog -I$(RV) soc.v; synth_ice40 -top PSRAM_SOC -json $@'
 
 soc.asc: soc.json icebreaker.pcf

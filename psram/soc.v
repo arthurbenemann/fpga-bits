@@ -7,7 +7,6 @@
 `include "riscv.v"
 `include "psram_spi.v"
 `include "psram_bus.v"
-`include "uart_rx.v"
 
 module PSRAM_SOC (
     input            CLK,

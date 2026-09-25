@@ -1,5 +1,6 @@
 `include "clockworks.v"
 `include "emitter_uart.v"
+`include "uart_rx.v"
 
 
 module Memory (
@@ -457,7 +458,8 @@ module SOC (
         mem_wordaddr[IO_UART_CNTL_bit]  ? { 22'b0, !uart_ready, 9'b0} :
         mem_wordaddr[IO_COUNTER_bit]    ? counter:
         mem_wordaddr[IO_MANDEL_CTRL]    ? mandel_ready:
-        mem_wordaddr[IO_MANDEL_IT]      ? mandel_iteration
+        mem_wordaddr[IO_MANDEL_IT]      ? mandel_iteration:
+        mem_wordaddr[IO_UART_RX_bit]    ? {23'b0, rx_read}
                                         : 32'b0;
     assign mem_rdata = isRAM ? RAM_rdata : IO_rdata ;
 
@@ -492,6 +494,7 @@ module SOC (
     localparam IO_MANDEL_CR     = 5;
     localparam IO_MANDEL_CI     = 6;
     localparam IO_MANDEL_IT     = 7;  
+    localparam IO_UART_RX_bit   = 8;     // R {valid, byte}; reading clears valid
 
 
     always @(posedge clk) begin
@@ -516,6 +519,22 @@ module SOC (
 
     // Free running counter at Fin
     free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));
+
+    // One-byte receive buffer. The CPU samples IO data a cycle after the load
+    // strobe, so the register value is latched on the strobe, which also clears it.
+    wire [7:0] rx_data;
+    wire       rx_valid;
+    reg        rx_full = 1'b0;
+    reg  [8:0] rx_read;
+    wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
+
+    UART_RX #(.CLKS_PER_BIT(12)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+
+    always @(posedge clk) begin
+        if (rx_rd) rx_read <= {rx_full, rx_data};
+        if (rx_valid) rx_full <= 1'b1;
+        else if (rx_rd) rx_full <= 1'b0;
+    end
 
     // DEBUG terminal
     `ifdef BENCH
