@@ -480,13 +480,18 @@ endmodule
 module SOC (
         input  CLK,        
         input  RESET,      
-        output reg [4:0] LEDS, 
+        output LEDR_N,      // LEDS[4], on the iCEBreaker (PMOD 2 may hold the PSRAM board)
+        output LEDG_N,      // LEDS[0]
         input  RXD,     
         output P1A1,
         output TXD  
     );
 
     assign P1A1 = TXD;
+
+    reg [4:0] LEDS = 5'b0;
+    assign LEDG_N = !LEDS[0];
+    assign LEDR_N = !LEDS[4];
     
     Clockworks CW(.clock_in(CLK), .clock_out(clk),.reset_ext(RESET),.resetn(resetn)); // Fin 12Mhz,  Fout 16Mhz, delayed reset and POR
     wire resetn;

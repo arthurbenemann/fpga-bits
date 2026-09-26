@@ -11,7 +11,8 @@
 module PSRAM_SOC (
     input            CLK,
     input            RESET,
-    output reg [4:0] LEDS,
+    output           LEDR_N,    // LEDS[4], on the iCEBreaker itself (PMOD 2 holds the PSRAM)
+    output           LEDG_N,    // LEDS[0]
     input            RXD,
     output           TXD,
     inout      [3:0] RAM_SIO,   // SIO3 is also the microSD DAT3/CS, held high when idle
@@ -73,7 +74,7 @@ module PSRAM_SOC (
     wire mem_wstrb = |mem_wmask;
 
     // Memory-mapped IO in IO page, 1-hot addressing in word address.
-    localparam IO_LEDS_bit      = 0;  // W five leds
+    localparam IO_LEDS_bit      = 0;  // W LEDS: bit 0 green, bit 4 red
     localparam IO_UART_DAT_bit  = 1;  // W data to send (8 bits)
     localparam IO_UART_CNTL_bit = 2;  // R status. bit 9: transmit FIFO full
     localparam IO_COUNTER_bit   = 3;  // R free-running clk counter
@@ -119,6 +120,10 @@ module PSRAM_SOC (
         .mem_wmask(mem_wmask),
         .mem_wbusy(psram_wbusy)
     );
+
+    reg [4:0] LEDS = 5'b0;
+    assign LEDG_N = !LEDS[0];
+    assign LEDR_N = !LEDS[4];
 
     always @(posedge clk) begin
         if (isIO & mem_wstrb & mem_wordaddr[IO_LEDS_bit])

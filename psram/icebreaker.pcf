@@ -36,23 +36,7 @@ set_io -nowarn FLASH_IO3  13
 #set_io -nowarn P1A9       46
 #set_io -nowarn P1A10      44
 
-set_io -nowarn RAM_SI       45
-set_io -nowarn RAM_SO       2
-
-set_io -nowarn SD_CLK     4
-set_io -nowarn SIO1       2
-set_io -nowarn SIO3       47
-set_io -nowarn SIO0       45
-set_io -nowarn SIO2       3
-set_io -nowarn RAM_CE_B   48
-set_io -nowarn RAM_CLK    46
-set_io -nowarn SD_CMD     44
-set_io -nowarn SD_CS      47
-
-set_io -nowarn RAM_SIO[0] 45
-set_io -nowarn RAM_SIO[1] 2
-set_io -nowarn RAM_SIO[2] 3
-set_io -nowarn RAM_SIO[3] 47
+# (PMOD 1A and 1B are free, planned for the 1BitSquared DVI PMOD)
 
 # PMOD 1B
 set_io -nowarn P1B1       43
@@ -64,21 +48,16 @@ set_io -nowarn P1B8       36
 set_io -nowarn P1B9       32
 set_io -nowarn P1B10      28
 
-# LEDs and Buttons (PMOD 2)
-#set_io -nowarn LED1       26
-#set_io -nowarn LED2       27
-#set_io -nowarn LED3       25
-#set_io -nowarn LED4       23
-#set_io -nowarn LED5       21
-set_io LEDS[0] 27
-set_io LEDS[1] 21
-set_io LEDS[2] 25
-set_io LEDS[3] 23
-set_io LEDS[4] 26
-
-set_io -nowarn BTN1       20
-set_io -nowarn BTN2       19
-set_io -nowarn BTN3       18
+# PMOD 2: PSRAM + microSD board (github.com/arthurbenemann/PMOD-PSRAM-SDCARD),
+# same header positions as it had on PMOD 1A. SIO3 is also the microSD DAT3/CS.
+set_io -nowarn RAM_SIO[0] 19
+set_io -nowarn RAM_SIO[1] 25
+set_io -nowarn RAM_SIO[2] 26
+set_io -nowarn RAM_SIO[3] 21
+set_io -nowarn RAM_CE_B   23
+set_io -nowarn RAM_CLK    20
+set_io -nowarn SD_CLK     27
+set_io -nowarn SD_CMD     18
 
 # clock constraints (nextpnr)
 # nextpnr derives the PLL outputs (clk, clk_spi) from the pad clock
