@@ -129,5 +129,7 @@ psram/bench.vcd
 *.img
 psram/build/
 *.pyc
-psram/fw.name
 psram/march.name
+
+# Claude Code
+.claude/

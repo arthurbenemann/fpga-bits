@@ -72,6 +72,7 @@ assemble.hexdump: boot.c $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.
 
 # Programs that run from PSRAM, uploaded by the bootloader:
 #   make load IMG=mandel.img | memtest.img | coremark.img
+#   make bundle: all of them at once, picked from the bootloader menu
 # MARCH: rv32i_zmmul, rv32im (CPU built with DIV=1) or rv32i.
 MARCH    := rv32i_zmmul
 MULTI    := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-multi-directory)
@@ -122,6 +123,10 @@ build/putchar.o: $(RV)/putchar.s
 load: $(IMG)
 	./load.py $(IMG)
 
+BUNDLE := mandel.img memtest.img coremark.img
+bundle: $(BUNDLE)
+	./load.py --bundle $^
+
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
 
@@ -136,5 +141,5 @@ clean:
 
 .SECONDARY:
 FORCE:
-.PHONY: all prog clean sim soc soc-prog load FORCE
+.PHONY: all prog clean sim soc soc-prog load bundle FORCE
 

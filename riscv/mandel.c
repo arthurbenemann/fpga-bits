@@ -1,7 +1,8 @@
 /*
  Computes and displays the Mandelbrot set over the UART, as ANSI colors.
  Keys: wasd or arrows move, +/- zoom, ,/. halve/double the iteration limit,
- h toggles hardware/software, r resets the view.
+ h toggles hardware/software, r resets the view, q returns from main
+ (to the PSRAM bootloader; the BRAM SOC stops at ebreak).
 */
 
 int printf(const char *fmt, ...);
@@ -161,7 +162,7 @@ int main()
             key = getkey();
         }
         end = IO_IN(IO_COUNTER);
-        if (key < 0) printf("%d kcycles (%d compute), zoom %dx, max it %d, %s  [wasd/arrows move, +/- zoom, ,/. iterations, h hw/sw, r reset]\033[K",
+        if (key < 0) printf("%d kcycles (%d compute), zoom %dx, max it %d, %s  [wasd/arrows move, +/- zoom, ,/. iterations, h hw/sw, r reset, q quit]\033[K",
                (end-start)>>10, compute>>10, STEP0 / step, max_it, sw ? "SW" : "HW");
 
         // Wait for a key, then apply it and any that came in meanwhile.
@@ -179,6 +180,7 @@ int main()
             case ',': case '<': if (max_it > 1) max_it /= 2; break;
             case 'h': sw = !sw; break;
             case 'r': cx = -mandel_mul / 2; cy = 0; step = STEP0; max_it = 64; break;
+            case 'q': printf("\r\n"); return 0;
             }
         }
     }

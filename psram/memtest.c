@@ -1,15 +1,17 @@
 // PSRAM test, run from PSRAM itself (load.py memtest.img). It tests everything
-// above its own image, up to the end of the 8 MB; its own few KB stay untested
+// above its own image up to the program bundle (top 1 MB, see boot.c); its own
+// few KB and the bundle stay untested. A key returns to the bootloader after a pass.
 #include <stdint.h>
 
 #define IO_BASE      0x400000
 #define IO_LEDS      4
 #define IO_COUNTER   32
+#define IO_UART_RX   1024
 
 #define IO_IN(port)       *(volatile uint32_t *)(IO_BASE + port)
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
 
-#define PSRAM_END  0x1000000u
+#define PSRAM_END  0xF00000u      // BUNDLE in boot.c
 #define CLK_KHZ    12000
 
 int printf(const char *fmt, ...);
@@ -78,7 +80,7 @@ static void test_exec(void)
 
 int main()
 {
-    printf("\r\nPSRAM test %x..%x, %d KB\r\n", BASE, PSRAM_END, (PSRAM_END - BASE) >> 10);
+    printf("\r\nPSRAM test %x..%x, %d KB (key: stop after the pass)\r\n", BASE, PSRAM_END, (PSRAM_END - BASE) >> 10);
 
     for (uint32_t pass = 0;; ++pass) {
         uint32_t invert = (pass & 1) ? 0xFFFFFFFFu : 0;
@@ -103,5 +105,6 @@ int main()
         printf("\r\npass %d: %d errors (subword, exec, words), write %d ms, read %d ms\r\n",
                pass, errors, (t1 - t0) / CLK_KHZ, (t2 - t1) / CLK_KHZ);
         IO_OUT(IO_LEDS, errors ? 0x1F : pass);
+        if (IO_IN(IO_UART_RX) & 0x100) return 0;
     }
 }
