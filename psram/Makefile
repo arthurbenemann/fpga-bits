@@ -49,11 +49,18 @@ CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/l
 
 soc: soc.bin
 
-soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump
-	yosys -ql soc.yslog -p 'read_verilog -I$(RV) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
+# CPU clock in MHz, a multiple of 3 (see soc.v); the firmware's timebase uses it too.
+CPU_MHZ := 15
+
+# Records the last CPU_MHZ built, so changing it rebuilds.
+cpu_mhz.name: FORCE
+	@echo $(CPU_MHZ) | cmp -s - $@ || echo $(CPU_MHZ) > $@
+
+soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump cpu_mhz.name
+	yosys -ql soc.yslog -p 'read_verilog -I$(RV) -DCPU_MHZ=$(CPU_MHZ) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
 
 soc.asc: soc.json icebreaker.pcf
-	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq 12 --asc $@ --pcf icebreaker.pcf --json $<
+	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq $(CPU_MHZ) --asc $@ --pcf icebreaker.pcf --json $<
 
 soc.bin: soc.asc
 	icepack $< $@
@@ -78,7 +85,7 @@ MARCH    := rv32i_zmmul
 MULTI    := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-multi-directory)
 PICOLIBC := /usr/lib/picolibc/riscv64-unknown-elf/lib/$(MULTI)
 PLIBGCC  := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-libgcc-file-name)
-PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS))
+PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS)) -DCPU_MHZ=$(CPU_MHZ)
 IMG      := coremark.img
 CM       := coremark
 CM_SRC   := $(wildcard $(CM)/*.c)
@@ -92,7 +99,7 @@ march.name: FORCE
 crt_psram.o: crt_psram.s
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
 
-build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h) march.name
+build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h) march.name cpu_mhz.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(CM_FLAGS) -c $< -o $@
 
@@ -104,7 +111,7 @@ coremark.img: crt_psram.o $(CM_OBJ) psram.ld march.name
 # Plain programs: one .c here or in ../riscv, plus the ../riscv printf/putchar.
 RT_OBJ := crt_psram.o build/print.o build/putchar.o
 
-build/%.o: %.c march.name
+build/%.o: %.c march.name cpu_mhz.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(PFLAGS) -c $< -o $@
 
@@ -135,7 +142,7 @@ clean:
 	rm -f $(PROJ).yslog $(PROJ).nplog $(PROJ).json $(PROJ).asc $(PROJ).rpt $(PROJ).bin
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
-	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin
+	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin cpu_mhz.name
 	rm -f start.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump
 	rm -rf build crt_psram.o *.elf *.img march.name
 

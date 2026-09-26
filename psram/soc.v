@@ -18,30 +18,44 @@ module PSRAM_SOC (
     output           RAM_CLK
 );
 
-    // Port A passes the 12 MHz pad clock through for the CPU; port B is the
-    // PLL output for the PSRAM engine: 12 * (79+1) / 2^4 = 60 MHz (SCLK 30 MHz).
-    wire clk_12, clk_spi;
+    // CPU clock in MHz (make CPU_MHZ=...): a multiple of 3, so the UART divides it
+    // exactly to 3 Mbaud (the FT2232H makes 12 MHz / n). The PLL makes the PSRAM
+    // engine clock, SPI_DIV times that (SCLK is half of it), and a counter divides it
+    // back down for the CPU; the engine's req/ack handshake doesn't care about the
+    // ratio. 15 MHz: engine 60, SCLK 30. The engine tops out near 80 MHz, so above
+    // 20 MHz the ratio is 2. PLL: 12 * (DIVF+1) / 2^DIVQ, VCO 12 * (DIVF+1) in 533..1066.
+`ifndef CPU_MHZ
+`define CPU_MHZ 15
+`endif
+    localparam CPU_MHZ = `CPU_MHZ;
+    localparam SPI_DIV = CPU_MHZ > 20 ? 2 : 4;
+    localparam SPI_MHZ = CPU_MHZ * SPI_DIV;
+    localparam DIVQ = SPI_MHZ * 16 > 1066 ? 3 : 4;
+    localparam DIVF = SPI_MHZ * (1 << DIVQ) / 12 - 1;       // 60 MHz: 79, VCO 960
+    wire clk_spi;
 `ifdef BENCH
-    assign clk_12 = CLK;
     assign clk_spi = CLK;
 `else
-    SB_PLL40_2_PAD #(
+    SB_PLL40_PAD #(
         .FEEDBACK_PATH("SIMPLE"),
-        .PLLOUT_SELECT_PORTB("GENCLK"),
         .DIVR(4'b0000),
-        .DIVF(7'b1001111),
-        .DIVQ(3'b100),
+        .DIVF(DIVF),
+        .DIVQ(DIVQ),
         .FILTER_RANGE(3'b001)
     ) pll (
         .PACKAGEPIN(CLK),
-        .PLLOUTGLOBALA(clk_12),
-        .PLLOUTGLOBALB(clk_spi),
+        .PLLOUTGLOBAL(clk_spi),
         .RESETB(1'b1),
         .BYPASS(1'b0)
     );
 `endif
+    reg  [1:0] div = 2'd0;
+    always @(posedge clk_spi) div <= div + 1;
+    wire clk_cpu;
+    SB_GB cpu_gb(.USER_SIGNAL_TO_GLOBAL_BUFFER(SPI_DIV == 2 ? div[0] : div[1]),
+                 .GLOBAL_BUFFER_OUTPUT(clk_cpu));
 
-    Clockworks CW(.clock_in(clk_12), .clock_out(clk), .reset_ext(RESET), .resetn(resetn));
+    Clockworks CW(.clock_in(clk_cpu), .clock_out(clk), .reset_ext(RESET), .resetn(resetn));
     wire resetn;
     wire clk;
 
@@ -128,7 +142,7 @@ module PSRAM_SOC (
     wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
 
     corescore_emitter_uart #(
-        .clk_divider(4)      // 12 MHz / 4 = 3 Mbaud (exact on the FT2232H)
+        .clk_divider(CPU_MHZ / 3)    // 3 Mbaud
     ) UART(
         .i_clk(clk),
         .i_rst(resetn),
@@ -148,7 +162,7 @@ module PSRAM_SOC (
     reg  [8:0] rx_read;
     wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
 
-    UART_RX #(.CLKS_PER_BIT(4)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+    UART_RX #(.CLKS_PER_BIT(CPU_MHZ / 3)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
 
     always @(posedge clk) begin
         if (rx_rd) rx_read <= {rx_full, rx_data};

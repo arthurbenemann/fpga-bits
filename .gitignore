@@ -130,6 +130,7 @@ psram/bench.vcd
 psram/build/
 *.pyc
 psram/march.name
+psram/cpu_mhz.name
 
 # Claude Code
 .claude/

@@ -81,5 +81,5 @@ set_io -nowarn BTN2       19
 set_io -nowarn BTN3       18
 
 # clock constraints (nextpnr)
-set_frequency clk     12
-set_frequency clk_spi 60
+# nextpnr derives the PLL outputs (clk, clk_spi) from the pad clock
+set_frequency CLK     12

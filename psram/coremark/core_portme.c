@@ -1,5 +1,6 @@
-/* CoreMark port for the PSRAM SoC. Timer: the SoC's free-running 12 MHz
-   cycle counter. Output: the SoC UART. Based on barebones/core_portme.c. */
+/* CoreMark port for the PSRAM SoC. Timer: the SoC's free-running cycle counter
+   at the CPU clock (CPU_MHZ, from the Makefile). Output: the SoC UART. Based on
+   barebones/core_portme.c. */
 #include "coremark.h"
 #include "core_portme.h"
 
@@ -8,7 +9,7 @@
 #define IO_UART_DAT      IO_REG(8)
 #define IO_UART_CNTL     IO_REG(16)
 #define IO_COUNTER       IO_REG(32)
-#define EE_TICKS_PER_SEC 12000000
+#define EE_TICKS_PER_SEC (CPU_MHZ * 1000000)
 
 #if VALIDATION_RUN
 volatile ee_s32 seed1_volatile = 0x3415;
