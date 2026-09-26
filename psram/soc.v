@@ -6,6 +6,7 @@
 `include "riscv.v"
 `include "psram_spi.v"
 `include "psram_bus.v"
+`include "uart_fifo.v"
 
 module PSRAM_SOC (
     input            CLK,
@@ -74,7 +75,7 @@ module PSRAM_SOC (
     // Memory-mapped IO in IO page, 1-hot addressing in word address.
     localparam IO_LEDS_bit      = 0;  // W five leds
     localparam IO_UART_DAT_bit  = 1;  // W data to send (8 bits)
-    localparam IO_UART_CNTL_bit = 2;  // R status. bit 9: busy sending
+    localparam IO_UART_CNTL_bit = 2;  // R status. bit 9: transmit FIFO full
     localparam IO_COUNTER_bit   = 3;  // R free-running clk counter
     localparam IO_MANDEL_CTRL   = 4;  // W start, R ready. Same map as the riscv/ SOC,
     localparam IO_MANDEL_CR     = 5;  //   so mandel.c runs on either
@@ -84,12 +85,12 @@ module PSRAM_SOC (
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
-    wire        uart_ready;
     wire [31:0] psram_rdata;
+    wire        tx_full;
     wire        psram_rbusy, psram_wbusy;
 
     wire [31:0] IO_rdata =
-        mem_wordaddr[IO_UART_CNTL_bit] ? {22'b0, !uart_ready, 9'b0} :
+        mem_wordaddr[IO_UART_CNTL_bit] ? {22'b0, tx_full, 9'b0} :
         mem_wordaddr[IO_COUNTER_bit]   ? counter :
         mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_read} :
         mem_wordaddr[IO_MANDEL_CTRL]   ? mandel_ready :
@@ -141,15 +142,8 @@ module PSRAM_SOC (
 
     wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
 
-    corescore_emitter_uart #(
-        .clk_divider(CPU_MHZ / 3)    // 3 Mbaud
-    ) UART(
-        .i_clk(clk),
-        .i_rst(resetn),
-        .i_data(mem_wdata[7:0]),
-        .i_valid(uart_valid),
-        .o_ready(uart_ready),
-        .o_uart_tx(TXD)
+    UART_TX_FIFO #(.CLKS_PER_BIT(CPU_MHZ / 3)) UART(    // 3 Mbaud
+        .clk(clk), .resetn(resetn), .data(mem_wdata[7:0]), .valid(uart_valid), .full(tx_full), .tx(TXD)
     );
 
     free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));

@@ -13,11 +13,13 @@ terminal until Ctrl-C.
 import argparse
 import glob
 import os
+import queue
 import re
 import select
 import struct
 import sys
 import termios
+import threading
 import time
 import tty
 
@@ -101,31 +103,37 @@ def main():
 
 
 def run(fd, keys, img, timeout, until_boot):
-    out = b""
-    checked = None                                      # end of the checksum line
+    # A thread only drains the port: the tty layer buffers just 4 KB and there is
+    # no flow control, so at 300 KB/s a reader slowed by the terminal loses bytes.
+    rx = queue.Queue()
+    threading.Thread(target=lambda: [rx.put(os.read(fd, 65536)) for _ in iter(int, 1)], daemon=True).start()
+    out = b""                                           # output so far, until checked
+    checked = None                                      # the checksum line was seen
     deadline = time.time() + timeout
     while time.time() < deadline:
-        ready = select.select([fd] + ([keys] if keys is not None else []), [], [], 0.1)[0]
-        if keys in ready:
+        if keys is not None and select.select([keys], [], [], 0)[0]:
             os.write(fd, os.read(keys, 64))
-        chunk = os.read(fd, 4096) if fd in ready else b""
+        try:
+            chunk = rx.get(timeout=0.02)
+        except queue.Empty:
+            continue
         if not chunk:
             continue
-        out += chunk
         sys.stdout.buffer.write(chunk)
         sys.stdout.flush()
-        if checked is None:
+        out = out[-64:] + chunk if checked else out + chunk
+        if not checked:
             m = re.search(rb"boot: ([0-9A-F]{8}) bytes, sum ([0-9A-F]{8})", out)
             if m:
-                checked = m.end()
+                checked = True
+                out = out[m.end():]
                 n, s = int(m[1], 16), int(m[2], 16)
                 if (n, s) != (len(img), sum(img) & 0xFFFFFFFF):
                     sys.exit(f"\nupload corrupted: board got {n} bytes sum {s:08X}, "
                              f"sent {len(img)} bytes sum {sum(img) & 0xFFFFFFFF:08X}")
-        if until_boot and checked is not None and BANNER in out[checked:]:
+        if until_boot and checked and BANNER in out:
             return                                      # program returned to the bootloader
-    sys.exit("\ntimeout" if checked is not None else "\nno reply: is the board in the bootloader?")
-
+    sys.exit("\ntimeout" if checked else "\nno reply: is the board in the bootloader?")
 
 if __name__ == "__main__":
     main()

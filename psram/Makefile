@@ -56,7 +56,7 @@ CPU_MHZ := 15
 cpu_mhz.name: FORCE
 	@echo $(CPU_MHZ) | cmp -s - $@ || echo $(CPU_MHZ) > $@
 
-soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump cpu_mhz.name
+soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/uart_fifo.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump cpu_mhz.name
 	yosys -ql soc.yslog -p 'read_verilog -I$(RV) -DCPU_MHZ=$(CPU_MHZ) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
 
 soc.asc: soc.json icebreaker.pcf
@@ -150,3 +150,4 @@ clean:
 FORCE:
 .PHONY: all prog clean sim soc soc-prog load bundle FORCE
 
+e
