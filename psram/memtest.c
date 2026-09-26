@@ -36,11 +36,9 @@ static void check(const char *what, uint32_t got, uint32_t want)
     }
 }
 
-// Unique per word, and exercises the high bits even for low addresses.
-static uint32_t pattern(uint32_t addr)
-{
-    return (addr << 8) ^ addr ^ 0xA5C3F00Fu;
-}
+// Unique per word, and exercises the high bits even for low addresses; k is
+// 0xA5C3F00F, inverted on odd passes.
+#define PATTERN(a, k) ((a) << 8 ^ (a) ^ (k))
 
 // Byte/halfword stores write only their own bytes, little-endian;
 // signed loads sign-extend.
@@ -83,22 +81,28 @@ int main()
     printf("\r\nPSRAM test %x..%x, %d KB (key: stop after the pass)\r\n", BASE, PSRAM_END, (PSRAM_END - BASE) >> 10);
 
     for (uint32_t pass = 0;; ++pass) {
-        uint32_t invert = (pass & 1) ? 0xFFFFFFFFu : 0;
+        uint32_t k = (pass & 1) ? ~0xA5C3F00Fu : 0xA5C3F00Fu;
 
         errors = 0;
         test_subword();
         test_exec();
 
         uint32_t t0 = IO_IN(IO_COUNTER);
-        for (uint32_t a = BASE; a < PSRAM_END; a += 4) {
-            if ((a & 0x7FFFF) == 0) putchar('.');
-            *(volatile uint32_t *)a = pattern(a) ^ invert;
+        // Word loops unrolled a cache line at a time; a dot per 512 KB, outside them.
+        for (uint32_t a = BASE; a < PSRAM_END; putchar('.')) {
+            uint32_t end = (a | 0x7FFFF) + 1;
+            #pragma GCC unroll 4
+            for (; a < end; a += 4) *(volatile uint32_t *)a = PATTERN(a, k);
         }
         uint32_t t1 = IO_IN(IO_COUNTER);
 
-        for (uint32_t a = BASE; a < PSRAM_END; a += 4) {
-            if ((a & 0x7FFFF) == 0) putchar('.');
-            check("word", *(volatile uint32_t *)a, pattern(a) ^ invert);
+        for (uint32_t a = BASE; a < PSRAM_END; putchar('.')) {
+            uint32_t end = (a | 0x7FFFF) + 1;
+            #pragma GCC unroll 4
+            for (; a < end; a += 4) {
+                uint32_t v = *(volatile uint32_t *)a;
+                if (v != PATTERN(a, k)) check("word", v, PATTERN(a, k));
+            }
         }
         uint32_t t2 = IO_IN(IO_COUNTER);
 
