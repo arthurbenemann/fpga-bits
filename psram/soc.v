@@ -13,13 +13,10 @@ module PSRAM_SOC (
     output reg [4:0] LEDS,
     input            RXD,
     output           TXD,
-    output           RAM_SI,
+    inout      [3:0] RAM_SIO,   // SIO3 is also the microSD DAT3/CS, held high when idle
     output           RAM_CE_B,
-    output           RAM_CLK,
-    input            RAM_SO,
-    output           SD_CS      // microSD CS shares the bus
+    output           RAM_CLK
 );
-    assign SD_CS = 1'b1;        // keep the card deselected
 
     // Port A passes the 12 MHz pad clock through for the CPU; port B is the
     // PLL output for the PSRAM engine: 12 * (79+1) / 2^4 = 60 MHz (SCLK 30 MHz).
@@ -170,8 +167,7 @@ module PSRAM_SOC (
         .rbusy(psram_rbusy),
         .wbusy(psram_wbusy),
         .clk_spi(clk_spi),
-        .miso(RAM_SO),
-        .mosi(RAM_SI),
+        .sio(RAM_SIO),
         .ce(RAM_CE_B),
         .sclk(RAM_CLK)
     );

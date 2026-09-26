@@ -7,6 +7,9 @@
 //   EXECUTE before STORE), so the tag compare is ready in time: hits cost nothing.
 //   Load miss: one 16-byte burst read, the words go into the SPRAMs, the tag is
 //   written, and the next read hits.
+//   The PSRAM runs in QPI mode: at configuration two commands are sent before
+//   anything else, 0xF5 in QPI form (exit QPI: 2 clocks, which a device still
+//   in SPI mode ignores as an incomplete command) then 0x35 in SPI form (enter QPI).
 //   Stores are posted to PSRAM as before (the CPU moves on while the bytes are
 //   shifted out) and update the cached copy on a hit; a store miss allocates
 //   nothing. A miss that arrives while a store is in flight waits for it.
@@ -22,15 +25,16 @@ module PSRAM_BUS (
     output            wbusy,
 
     input             clk_spi,
-    input             miso,
-    output            mosi,
+    inout      [3:0]  sio,
     output            ce,
     output            sclk
 );
-    localparam CMD_WRITE = 8'h02;
-    localparam CMD_READ  = 8'h03;
+    localparam CMD_WRITE = 8'h38;   // QPI: cmd, addr, data
+    localparam CMD_READ  = 8'hEB;   // QPI: cmd, addr, 6 wait, data
 
-    wire         busy;
+    wire         spi_busy;
+    reg  [1:0]   init = 2'd0;      // 0: send QPI 0xF5, 1: send SPI 0x35, 2: ready
+    wire         busy = spi_busy || !init[1];
     wire [127:0] line;             // burst read data, first byte on top
     reg          reading = 1'b0;   // a load is waiting for its data
     reg  [1:0]   fill = 2'd0;      // 0 idle, 1 bursting, 2 writing words, 3 re-reading
@@ -95,18 +99,22 @@ module PSRAM_BUS (
         .CHIPSELECT(1'b1), .CLOCK(clk), .STANDBY(1'b0), .SLEEP(1'b0), .POWEROFF(1'b1)
     );
 
-    PSRAM_SPI_CDC spi (
+    // SPI 0x35 (0011_0101) as 8 nibbles with the bits on SIO0.
+    wire start_init = !init[1] && !spi_busy;
+    always @(posedge clk) if (start_init) init <= init + 1;
+
+    PSRAM_QPI_CDC spi (
         .clk(clk),
-        .start(start_write || start_read),
-        .cmd(start_write ? CMD_WRITE : CMD_READ),
-        .addr({1'b0, addr[22:4], start_write ? addr[3:0] : 4'b0000}),
+        .start(start_write || start_read || start_init),
+        .cmd(start_init ? (init[0] ? 8'h00 : 8'hF5) : start_write ? CMD_WRITE : CMD_READ),
+        .addr(start_init ? 24'h110101 : {1'b0, addr[22:4], start_write ? addr[3:0] : 4'b0000}),
         .wdata(wdata_seq),
-        .nbytes(start_write ? {2'b00, count} : 5'd16),
+        .last(start_init ? (init[0] ? 6'd7 : 6'd1) : start_write ? 6'd7 + {2'b00, count, 1'b0} : 6'd45),
+        .rd(start_read),
         .rdata(line),
-        .busy(busy),
+        .busy(spi_busy),
         .clk_spi(clk_spi),
-        .miso(miso),
-        .mosi(mosi),
+        .sio(sio),
         .ce(ce),
         .sclk(sclk)
     );
