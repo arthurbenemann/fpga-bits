@@ -92,7 +92,7 @@ assemble.hexdump: boot.c $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.
 	hexdump --no-squeezing -e '"%08x\n"' fw.bin > $@
 
 # Programs that run from PSRAM, uploaded by the bootloader:
-#   make load IMG=mandel.img | memtest.img | coremark.img
+#   make load IMG=mandel.img | memtest.img | coremark.img | fbtest.img
 #   make bundle: all of them at once, picked from the bootloader menu
 # MARCH: rv32i_zmmul, rv32im (CPU built with DIV=1) or rv32i.
 MARCH    := rv32i_zmmul
@@ -144,7 +144,7 @@ build/putchar.o: $(RV)/putchar.s
 load: $(IMG)
 	./load.py --baud $(BAUD) $(IMG)
 
-BUNDLE := mandel.img memtest.img coremark.img
+BUNDLE := mandel.img memtest.img coremark.img fbtest.img
 bundle: $(BUNDLE)
 	./load.py --baud $(BAUD) --bundle $^
 

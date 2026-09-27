@@ -1,5 +1,6 @@
 // RISC-V core from ../riscv with the PSRAM mapped into its address space.
-//   0x000000-0x3FFFFF  BRAM (6 KB populated)
+//   0x000000-0x1FFFFF  BRAM (6 KB populated)
+//   0x200000-0x3FFFFF  framebuffer, 320x200 bytes (64 KB populated), with VIDEO
 //   0x400000-0x7FFFFF  IO page, same map as the riscv/ SOC
 //   0x800000-0xFFFFFF  PSRAM, 8 MB
 // With VIDEO defined, 640x480 DVI out (video.v) and a fixed clock plan.
@@ -84,12 +85,6 @@ module PSRAM_SOC (
 `ifdef VIDEO
     wire clk_pix;
     SB_GB pix_gb(.USER_SIGNAL_TO_GLOBAL_BUFFER(div[0]), .GLOBAL_BUFFER_OUTPUT(clk_pix));
-
-    VIDEO video(
-        .clk_pix(clk_pix),
-        .dvi_r(DVI_R), .dvi_g(DVI_G), .dvi_b(DVI_B),
-        .dvi_clk(DVI_CLK), .dvi_hs(DVI_HS), .dvi_vs(DVI_VS), .dvi_de(DVI_DE)
-    );
 `endif
 
     Clockworks CW(.clock_in(clk_cpu), .clock_out(clk), .reset_ext(RESET), .resetn(resetn));
@@ -105,7 +100,8 @@ module PSRAM_SOC (
     wire [29:0] mem_wordaddr = mem_addr[31:2];
     wire isPSRAM = mem_addr[23];
     wire isIO    = !mem_addr[23] &  mem_addr[22];
-    wire isRAM   = !mem_addr[23] & !mem_addr[22];
+    wire isFB    = !mem_addr[23] & !mem_addr[22] &  mem_addr[21];
+    wire isRAM   = !mem_addr[23] & !mem_addr[22] & !mem_addr[21];
     wire mem_wstrb = |mem_wmask;
 
     // Memory-mapped IO in IO page, 1-hot addressing in word address.
@@ -118,10 +114,14 @@ module PSRAM_SOC (
     localparam IO_MANDEL_CI     = 6;
     localparam IO_MANDEL_IT     = 7;  // R iterations left, W max iterations
     localparam IO_UART_RX_bit   = 8;  // R {valid, byte}; reading clears valid
+    localparam IO_VIDEO_bit     = 9;  // W palette entry {index, 4'b0, 0xRGB} (bits 23:16, 11:0),
+                                      //   R frames the video has finished reading
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
     wire [31:0] psram_rdata;
+    wire [31:0] fb_rdata;
+    wire [31:0] frames;
     wire        tx_full;
     wire        psram_rbusy, psram_wbusy;
 
@@ -130,10 +130,12 @@ module PSRAM_SOC (
         mem_wordaddr[IO_COUNTER_bit]   ? counter :
         mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_read} :
         mem_wordaddr[IO_MANDEL_CTRL]   ? mandel_ready :
-        mem_wordaddr[IO_MANDEL_IT]     ? mandel_iteration
+        mem_wordaddr[IO_MANDEL_IT]     ? mandel_iteration :
+        mem_wordaddr[IO_VIDEO_bit]     ? frames
                                        : 32'b0;
     assign mem_rdata = isPSRAM ? psram_rdata :
-                       isRAM   ? RAM_rdata   : IO_rdata;
+                       isRAM   ? RAM_rdata   :
+                       isFB    ? fb_rdata    : IO_rdata;
 
     Memory RAM(
         .clk(clk),
@@ -219,6 +221,26 @@ module PSRAM_SOC (
         .ce(RAM_CE_B),
         .sclk(RAM_CLK)
     );
+
+`ifdef VIDEO
+    VIDEO video(
+        .clk(clk),
+        .sel(isFB),
+        .addr(mem_addr[15:0]),
+        .rstrb(mem_rstrb),
+        .wdata(mem_wdata),
+        .wmask(mem_wmask),
+        .rdata(fb_rdata),
+        .pal_we(isIO & mem_wstrb & mem_wordaddr[IO_VIDEO_bit]),
+        .frames(frames),
+        .clk_pix(clk_pix),
+        .dvi_r(DVI_R), .dvi_g(DVI_G), .dvi_b(DVI_B),
+        .dvi_clk(DVI_CLK), .dvi_hs(DVI_HS), .dvi_vs(DVI_VS), .dvi_de(DVI_DE)
+    );
+`else
+    assign fb_rdata = 32'b0;
+    assign frames   = 32'b0;
+`endif
 
     `ifdef BENCH
     always @(posedge clk) begin

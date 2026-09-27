@@ -4,16 +4,19 @@
 //   '1'..'9'                          copy that bundle program to PSRAM_BASE, jump
 //   any other byte                    list the bundle again
 // Programs built with psram.ld jump back here when main() returns.
+// With video, the screen shows an XOR texture under the RGB 3-3-2 palette meanwhile.
 #include <stdint.h>
 
 #define IO_BASE      0x400000
 #define IO_UART_DAT  8
 #define IO_UART_CNTL 16
 #define IO_UART_RX   1024
+#define IO_VIDEO     2048
 
 #define IO_IN(port)       *(volatile uint32_t *)(IO_BASE + port)
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
 
+#define FB           ((volatile uint32_t *)0x200000)
 #define PSRAM_BASE   0x800000u
 #define BUNDLE       0xF00000u      // top 1 MB of PSRAM
 #define BUNDLE_END   0x1000000u
@@ -65,6 +68,22 @@ static void receive(volatile uint8_t *dst)
     tx_str("\r\n");
 }
 
+// Palette entry i = RGB 3-3-2 (the power-up palette); pixel (x, y) = (x ^ y) & 255.
+static void screen(void)
+{
+    for (uint32_t i = 0; i < 256; ++i) {
+        uint32_t r = i >> 5, g = i >> 2 & 7, b = i & 3;
+        IO_OUT(IO_VIDEO, i << 16 | (r << 1 | r >> 2) << 8 | (g << 1 | g >> 2) << 4 | b << 2 | b);
+    }
+    volatile uint32_t *p = FB;
+    for (uint32_t y = 0; y < 200; ++y)
+        for (uint32_t x = 0; x < 320; x += 4) {
+            uint32_t c = (x ^ y) & 255;
+            c |= c << 8;
+            *p++ = (c | c << 16) ^ 0x03020100;      // bytes x..x+3: (x ^ y) ^ 0..3
+        }
+}
+
 static struct entry *next(struct entry *e)
 {
     return (struct entry *)((char *)(e + 1) + ((e->len + 3) & ~3u));
@@ -87,6 +106,7 @@ static uint32_t menu(void)
 
 int main()
 {
+    screen();
     tx_str("\r\nboot: waiting for image\r\n");
     for (uint32_t n = menu();; n = menu()) {
         uint32_t c = rx();
