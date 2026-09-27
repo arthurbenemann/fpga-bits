@@ -26,27 +26,24 @@ set_io -nowarn FLASH_IO1  17
 set_io -nowarn FLASH_IO2  12
 set_io -nowarn FLASH_IO3  13
 
-# PMOD 1A
-#set_io -nowarn P1A1        4
-#set_io -nowarn P1A2        2
-#set_io -nowarn P1A3       47
-#set_io -nowarn P1A4       45
-#set_io -nowarn P1A7        3
-#set_io -nowarn P1A8       48
-#set_io -nowarn P1A9       46
-#set_io -nowarn P1A10      44
-
-# (PMOD 1A and 1B are free, planned for the 1BitSquared DVI PMOD)
-
-# PMOD 1B
-set_io -nowarn P1B1       43
-set_io -nowarn P1B2       38
-set_io -nowarn P1B3       34
-set_io -nowarn P1B4       31
-set_io -nowarn P1B7       42
-set_io -nowarn P1B8       36
-set_io -nowarn P1B9       32
-set_io -nowarn P1B10      28
+# PMOD 1A + 1B: 1BitSquared 12-bit DVI PMOD (TFP410), as in
+# icebreaker-verilog-examples dvi-12bit
+set_io -nowarn DVI_R[3]   4  # P1A1
+set_io -nowarn DVI_R[1]   2  # P1A2
+set_io -nowarn DVI_G[3]  47  # P1A3
+set_io -nowarn DVI_G[1]  45  # P1A4
+set_io -nowarn DVI_R[2]   3  # P1A7
+set_io -nowarn DVI_R[0]  48  # P1A8
+set_io -nowarn DVI_G[2]  46  # P1A9
+set_io -nowarn DVI_G[0]  44  # P1A10
+set_io -nowarn DVI_B[3]  43  # P1B1
+set_io -nowarn DVI_CLK   38  # P1B2
+set_io -nowarn DVI_B[0]  34  # P1B3
+set_io -nowarn DVI_HS    31  # P1B4
+set_io -nowarn DVI_B[2]  42  # P1B7
+set_io -nowarn DVI_B[1]  36  # P1B8
+set_io -nowarn DVI_DE    32  # P1B9
+set_io -nowarn DVI_VS    28  # P1B10
 
 # PMOD 2: PSRAM + microSD board (github.com/arthurbenemann/PMOD-PSRAM-SDCARD),
 # same header positions as it had on PMOD 1A. SIO3 is also the microSD DAT3/CS.
@@ -60,5 +57,7 @@ set_io -nowarn SD_CLK     27
 set_io -nowarn SD_CMD     18
 
 # clock constraints (nextpnr)
-# nextpnr derives the PLL outputs (clk, clk_spi) from the pad clock
+# nextpnr derives the PLL output (clk_spi) from the pad clock; the CPU clock
+# (clk) comes from --freq
 set_frequency CLK     12
+set_frequency clk_pix 25.125

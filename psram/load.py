@@ -11,6 +11,7 @@ With --bundle, the images are stored together in the top 1 MB of PSRAM instead
 terminal until Ctrl-C.
 """
 import argparse
+import fcntl
 import glob
 import os
 import queue
@@ -55,13 +56,21 @@ def find_port():
     sys.exit("iCEBreaker UART not found")
 
 
-def open_port(dev):
+def open_port(dev, baud):
     fd = os.open(dev, os.O_RDWR | os.O_NOCTTY)
     cc = termios.tcgetattr(fd)[6]
     cc[termios.VMIN], cc[termios.VTIME] = 0, 1          # reads return after 0.1 s idle
     cflag = termios.CS8 | termios.CREAD | termios.CLOCAL
     termios.tcsetattr(fd, termios.TCSANOW,
                       [0, 0, cflag, 0, termios.B3000000, termios.B3000000, cc])
+    # Any rate via Linux termios2 (BOTHER); the FT2232H driver picks its nearest,
+    # 12 MHz / n with n in eighths: 3140625 gives 12 / 3.875 = 3.097 Mbaud.
+    TCGETS2, TCSETS2, CBAUD, BOTHER = 0x802C542A, 0x402C542B, 0o10017, 0o10000
+    t = bytearray(44)                                   # struct termios2
+    fcntl.ioctl(fd, TCGETS2, t)
+    struct.pack_into("<I", t, 8, struct.unpack_from("<I", t, 8)[0] & ~CBAUD | BOTHER)
+    struct.pack_into("<II", t, 36, baud, baud)          # c_ispeed, c_ospeed
+    fcntl.ioctl(fd, TCSETS2, t)
     termios.tcflush(fd, termios.TCIOFLUSH)
     return fd
 
@@ -71,6 +80,7 @@ def main():
     ap.add_argument("image", nargs="+", help="one image, or several with --bundle")
     ap.add_argument("--bundle", action="store_true", help="store the images for the menu")
     ap.add_argument("--port", help="serial device (default: find the iCEBreaker)")
+    ap.add_argument("--baud", type=int, default=3140625, help="the SoC's UART rate (Makefile BAUD)")
     ap.add_argument("--timeout", type=float, default=600, help="seconds to wait for the program")
     args = ap.parse_args()
 
@@ -80,7 +90,7 @@ def main():
         img = open(args.image[0], "rb").read()
     else:
         sys.exit("several images need --bundle")
-    fd = open_port(args.port or find_port())
+    fd = open_port(args.port or find_port(), args.baud)
 
     os.write(fd, b"\2" if args.bundle else b"\1")    # command, then let boot.c reach rx()
     time.sleep(0.01)

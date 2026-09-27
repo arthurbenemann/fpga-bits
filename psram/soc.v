@@ -2,11 +2,15 @@
 //   0x000000-0x3FFFFF  BRAM (6 KB populated)
 //   0x400000-0x7FFFFF  IO page, same map as the riscv/ SOC
 //   0x800000-0xFFFFFF  PSRAM, 8 MB
+// With VIDEO defined, 640x480 DVI out (video.v) and a fixed clock plan.
 // Build with -I../riscv; riscv.v also defines its own SOC top, which goes unused here.
 `include "riscv.v"
 `include "psram_spi.v"
 `include "psram_bus.v"
 `include "uart_fifo.v"
+`ifdef VIDEO
+`include "video.v"
+`endif
 
 module PSRAM_SOC (
     input            CLK,
@@ -18,14 +22,33 @@ module PSRAM_SOC (
     inout      [3:0] RAM_SIO,   // SIO3 is also the microSD DAT3/CS, held high when idle
     output           RAM_CE_B,
     output           RAM_CLK
+`ifdef VIDEO
+   ,output     [3:0] DVI_R,
+    output     [3:0] DVI_G,
+    output     [3:0] DVI_B,
+    output           DVI_CLK,
+    output           DVI_HS,
+    output           DVI_VS,
+    output           DVI_DE
+`endif
 );
 
-    // CPU clock in MHz (make CPU_MHZ=...): a multiple of 3, so the UART divides it
-    // exactly to 3 Mbaud (the FT2232H makes 12 MHz / n). The PLL makes the PSRAM
-    // engine clock, SPI_DIV times that (SCLK is half of it), and a counter divides it
-    // back down for the CPU; the engine's req/ack handshake doesn't care about the
-    // ratio. 15 MHz: engine 60, SCLK 30. The engine tops out near 80 MHz, so above
-    // 20 MHz the ratio is 2. PLL: 12 * (DIVF+1) / 2^DIVQ, VCO 12 * (DIVF+1) in 533..1066.
+    // Clock plan. The PLL makes the PSRAM engine clock, SPI_DIV times the CPU clock
+    // (SCLK is half of it), and a counter divides it back down for the CPU; the
+    // engine's req/ack handshake doesn't care about the ratio. The engine tops out
+    // near 80 MHz. PLL: 12 * (DIVF+1) / 2^DIVQ, VCO 12 * (DIVF+1) in 533..1066.
+    // VIDEO: engine 50.25 MHz (DIVF 66, DIVQ 4), pixel clock half of it, CPU a
+    // quarter, 12.5625 MHz; the UART divides that by 4 to 3.140625 Mbaud, which
+    // the FT2232H (12 MHz / n, n in eighths) gets within 1.4% of.
+    // Otherwise the CPU clock is CPU_MHZ (make CPU_MHZ=...): a multiple of 3, so
+    // the UART divides it exactly to 3 Mbaud. 15 MHz: engine 60, SCLK 30. Above
+    // 20 MHz the ratio is 2.
+`ifdef VIDEO
+    localparam SPI_DIV = 4;
+    localparam DIVQ = 4;
+    localparam DIVF = 66;
+    localparam UART_DIV = 4;
+`else
 `ifndef CPU_MHZ
 `define CPU_MHZ 15
 `endif
@@ -34,6 +57,8 @@ module PSRAM_SOC (
     localparam SPI_MHZ = CPU_MHZ * SPI_DIV;
     localparam DIVQ = SPI_MHZ * 16 > 1066 ? 3 : 4;
     localparam DIVF = SPI_MHZ * (1 << DIVQ) / 12 - 1;       // 60 MHz: 79, VCO 960
+    localparam UART_DIV = CPU_MHZ / 3;                      // 3 Mbaud
+`endif
     wire clk_spi;
 `ifdef BENCH
     assign clk_spi = CLK;
@@ -56,6 +81,16 @@ module PSRAM_SOC (
     wire clk_cpu;
     SB_GB cpu_gb(.USER_SIGNAL_TO_GLOBAL_BUFFER(SPI_DIV == 2 ? div[0] : div[1]),
                  .GLOBAL_BUFFER_OUTPUT(clk_cpu));
+`ifdef VIDEO
+    wire clk_pix;
+    SB_GB pix_gb(.USER_SIGNAL_TO_GLOBAL_BUFFER(div[0]), .GLOBAL_BUFFER_OUTPUT(clk_pix));
+
+    VIDEO video(
+        .clk_pix(clk_pix),
+        .dvi_r(DVI_R), .dvi_g(DVI_G), .dvi_b(DVI_B),
+        .dvi_clk(DVI_CLK), .dvi_hs(DVI_HS), .dvi_vs(DVI_VS), .dvi_de(DVI_DE)
+    );
+`endif
 
     Clockworks CW(.clock_in(clk_cpu), .clock_out(clk), .reset_ext(RESET), .resetn(resetn));
     wire resetn;
@@ -147,7 +182,7 @@ module PSRAM_SOC (
 
     wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
 
-    UART_TX_FIFO #(.CLKS_PER_BIT(CPU_MHZ / 3)) UART(    // 3 Mbaud
+    UART_TX_FIFO #(.CLKS_PER_BIT(UART_DIV)) UART(
         .clk(clk), .resetn(resetn), .data(mem_wdata[7:0]), .valid(uart_valid), .full(tx_full), .tx(TXD)
     );
 
@@ -161,7 +196,7 @@ module PSRAM_SOC (
     reg  [8:0] rx_read;
     wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
 
-    UART_RX #(.CLKS_PER_BIT(CPU_MHZ / 3)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+    UART_RX #(.CLKS_PER_BIT(UART_DIV)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
 
     always @(posedge clk) begin
         if (rx_rd) rx_read <= {rx_full, rx_data};

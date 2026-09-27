@@ -49,18 +49,32 @@ CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/l
 
 soc: soc.bin
 
-# CPU clock in MHz, a multiple of 3 (see soc.v); the firmware's timebase uses it too.
+# Clock plan (see soc.v). VIDEO=1: DVI out, CPU 12.5625 MHz, UART 3.140625 Mbaud.
+# VIDEO=0: no video, CPU clock CPU_MHZ (a multiple of 3), UART 3 Mbaud.
+# The firmware's timebase uses CPU_HZ, nextpnr CPU_FREQ (MHz), load.py BAUD.
+VIDEO   := 1
 CPU_MHZ := 15
+ifeq ($(VIDEO),1)
+CPU_HZ  := 12562500
+CPU_FREQ:= 12.5625
+BAUD    := 3140625
+YDEFS   := -DVIDEO
+else
+CPU_HZ  := $(CPU_MHZ)000000
+CPU_FREQ:= $(CPU_MHZ)
+BAUD    := 3000000
+YDEFS   := -DCPU_MHZ=$(CPU_MHZ)
+endif
 
-# Records the last CPU_MHZ built, so changing it rebuilds.
-cpu_mhz.name: FORCE
-	@echo $(CPU_MHZ) | cmp -s - $@ || echo $(CPU_MHZ) > $@
+# Records the last clock plan built, so changing it rebuilds.
+clock.name: FORCE
+	@echo $(VIDEO) $(CPU_HZ) | cmp -s - $@ || echo $(VIDEO) $(CPU_HZ) > $@
 
-soc.json: soc.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/uart_fifo.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump cpu_mhz.name
-	yosys -ql soc.yslog -p 'read_verilog -I$(RV) -DCPU_MHZ=$(CPU_MHZ) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
+soc.json: soc.v video.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/uart_fifo.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump clock.name
+	yosys -ql soc.yslog -p 'read_verilog -I$(RV) $(YDEFS) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
 
 soc.asc: soc.json icebreaker.pcf
-	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq $(CPU_MHZ) --asc $@ --pcf icebreaker.pcf --json $<
+	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq $(CPU_FREQ) --asc $@ --pcf icebreaker.pcf --json $<
 
 soc.bin: soc.asc
 	icepack $< $@
@@ -85,7 +99,7 @@ MARCH    := rv32i_zmmul
 MULTI    := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-multi-directory)
 PICOLIBC := /usr/lib/picolibc/riscv64-unknown-elf/lib/$(MULTI)
 PLIBGCC  := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-libgcc-file-name)
-PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS)) -DCPU_MHZ=$(CPU_MHZ)
+PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS)) -DCPU_HZ=$(CPU_HZ)
 IMG      := coremark.img
 CM       := coremark
 CM_SRC   := $(wildcard $(CM)/*.c)
@@ -99,7 +113,7 @@ march.name: FORCE
 crt_psram.o: crt_psram.s
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
 
-build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h) march.name cpu_mhz.name
+build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h) march.name clock.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(CM_FLAGS) -c $< -o $@
 
@@ -111,7 +125,7 @@ coremark.img: crt_psram.o $(CM_OBJ) psram.ld march.name
 # Plain programs: one .c here or in ../riscv, plus the ../riscv printf/putchar.
 RT_OBJ := crt_psram.o build/print.o build/putchar.o
 
-build/%.o: %.c march.name cpu_mhz.name
+build/%.o: %.c march.name clock.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(PFLAGS) -c $< -o $@
 
@@ -128,11 +142,11 @@ build/putchar.o: $(RV)/putchar.s
 	riscv64-unknown-elf-objcopy -O binary $*.elf $@
 
 load: $(IMG)
-	./load.py $(IMG)
+	./load.py --baud $(BAUD) $(IMG)
 
 BUNDLE := mandel.img memtest.img coremark.img
 bundle: $(BUNDLE)
-	./load.py --bundle $^
+	./load.py --baud $(BAUD) --bundle $^
 
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
@@ -142,7 +156,7 @@ clean:
 	rm -f $(PROJ).yslog $(PROJ).nplog $(PROJ).json $(PROJ).asc $(PROJ).rpt $(PROJ).bin
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
-	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin cpu_mhz.name
+	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin clock.name
 	rm -f start.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump
 	rm -rf build crt_psram.o *.elf *.img march.name
 

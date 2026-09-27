@@ -12,7 +12,7 @@
 #define IO_OUT(port, val) *(volatile uint32_t *)(IO_BASE + port) = (val)
 
 #define PSRAM_END  0xF00000u      // BUNDLE in boot.c
-#define CLK_KHZ    (CPU_MHZ * 1000)
+#define CLK_KHZ    (CPU_HZ / 1000)
 
 int printf(const char *fmt, ...);
 int putchar(int c);

@@ -1,4 +1,4 @@
-/* CoreMark port for the PSRAM SoC (RV32I, CPU_MHZ, run from PSRAM via boot.c).
+/* CoreMark port for the PSRAM SoC (RV32I, CPU_HZ, run from PSRAM via boot.c).
    Upstream: github.com/eembc/coremark @ 1f483d5, based on barebones/core_portme.h. */
 #ifndef CORE_PORTME_H
 #define CORE_PORTME_H

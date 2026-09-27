@@ -39,7 +39,7 @@ static void tx_hex(uint32_t v)
     for (int i = 28; i >= 0; i -= 4) tx("0123456789ABCDEF"[(v >> i) & 15]);
 }
 
-// Must keep up with 3 Mbaud: a byte every 40 CPU cycles.
+// Must keep up with the UART: a byte every 40 CPU cycles (10 bits, 4 clocks each).
 static uint32_t rx(void)
 {
     uint32_t c;
