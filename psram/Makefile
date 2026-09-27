@@ -49,22 +49,7 @@ CFLAGS := -march=rv32i -mabi=ilp32 -O2 -fno-pic -fno-stack-protector -w -I/usr/l
 
 soc: soc.bin
 
-# Clock plan (see soc.v). VIDEO=1: DVI out, CPU 12.5625 MHz, UART 3.140625 Mbaud.
-# VIDEO=0: no video, CPU clock CPU_MHZ (a multiple of 3), UART 3 Mbaud.
-# The firmware's timebase uses CPU_HZ, nextpnr CPU_FREQ (MHz), load.py BAUD.
-VIDEO   := 1
-CPU_MHZ := 15
-ifeq ($(VIDEO),1)
-CPU_HZ  := 12562500
-CPU_FREQ:= 12.5625
-BAUD    := 3140625
-YDEFS   := -DVIDEO
-else
-CPU_HZ  := $(CPU_MHZ)000000
-CPU_FREQ:= $(CPU_MHZ)
-BAUD    := 3000000
-YDEFS   := -DCPU_MHZ=$(CPU_MHZ)
-endif
+include clock.mk
 
 # Records the last clock plan built, so changing it rebuilds.
 clock.name: FORCE
@@ -148,6 +133,10 @@ BUNDLE := mandel.img memtest.img coremark.img fbtest.img
 bundle: $(BUNDLE)
 	./load.py --baud $(BAUD) --bundle $^
 
+# Cycle-approximate simulator of this SoC: ./rvsim $(IMG)
+rvsim: rvsim.c
+	cc -O2 -Wall -o $@ $<
+
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
 
@@ -158,7 +147,7 @@ clean:
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin clock.name
 	rm -f start.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump
-	rm -rf build crt_psram.o *.elf *.img march.name
+	rm -rf build crt_psram.o *.elf *.img march.name rvsim
 
 .SECONDARY:
 FORCE:
