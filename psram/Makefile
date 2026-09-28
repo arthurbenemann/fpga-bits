@@ -51,11 +51,11 @@ soc: soc.bin
 
 include clock.mk
 
-# Records the last clock plan built, so changing it rebuilds.
+# Records the last clock plan built, so changing it (or PIPE) rebuilds.
 clock.name: FORCE
-	@echo $(VIDEO) $(CPU_HZ) | cmp -s - $@ || echo $(VIDEO) $(CPU_HZ) > $@
+	@echo $(VIDEO) $(CPU_HZ) $(PIPE) | cmp -s - $@ || echo $(VIDEO) $(CPU_HZ) $(PIPE) > $@
 
-soc.json: soc.v video.v psram_spi.v psram_bus.v $(RV)/uart_rx.v $(RV)/uart_fifo.v $(RV)/emitter_uart.v $(RV)/riscv.v assemble.hexdump clock.name
+soc.json: soc.v video.v psram_spi.v psram_bus.v flash_spi.v $(RV)/uart_rx.v $(RV)/uart_fifo.v $(RV)/emitter_uart.v $(RV)/riscv.v $(RV)/pipe.v assemble.hexdump clock.name
 	yosys -ql soc.yslog -p 'read_verilog -I$(RV) $(YDEFS) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
 
 soc.asc: soc.json icebreaker.pcf
@@ -67,24 +67,31 @@ soc.bin: soc.asc
 soc-prog: soc.bin
 	iceprog $<
 
-assemble.hexdump: boot.c $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
+# boot_entry.h: the address of entry.s's `entry` label, boot.c's fixed
+# hand-off point for the menu (see entry.s, menu.c). Generated after linking
+# fw.elf rather than hardcoded, since it depends on the linker's layout.
+assemble.hexdump boot_entry.h &: boot.c entry.s $(RV)/start.s $(RV)/putchar.s $(RV)/print.c $(RV)/bram.ld
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/start.s -o start.o
+	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax entry.s -o entry.o
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $(RV)/putchar.s -o putchar.o
 	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c $(RV)/print.c -o print.o
 	riscv64-unknown-elf-gcc $(CFLAGS) -ffunction-sections -fdata-sections -c boot.c -o boot.o
-	riscv64-unknown-elf-ld -T $(RV)/bram.ld -m elf32lriscv -nostdlib --no-relax --gc-sections start.o print.o putchar.o boot.o $(LIBGCC) -o fw.elf
+	riscv64-unknown-elf-ld -T $(RV)/bram.ld -m elf32lriscv -nostdlib --no-relax --gc-sections start.o entry.o print.o putchar.o boot.o $(LIBGCC) -o fw.elf
 	riscv64-unknown-elf-objcopy -O binary fw.elf fw.bin
-	hexdump --no-squeezing -e '"%08x\n"' fw.bin > $@
+	hexdump --no-squeezing -e '"%08x\n"' fw.bin > assemble.hexdump
+	riscv64-unknown-elf-nm fw.elf | awk '$$2=="T" && $$3=="entry" {print "#define BOOT_ENTRY 0x" $$1}' > boot_entry.h
+
+build/menu.o: boot_entry.h
 
 # Programs that run from PSRAM, uploaded by the bootloader:
 #   make load IMG=mandel.img | memtest.img | coremark.img | fbtest.img
-#   make bundle: all of them at once, picked from the bootloader menu
+#   make bundle: all of them at once (menu.img first), picked from the menu
 # MARCH: rv32i_zmmul, rv32im (CPU built with DIV=1) or rv32i.
 MARCH    := rv32i_zmmul
 MULTI    := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-multi-directory)
 PICOLIBC := /usr/lib/picolibc/riscv64-unknown-elf/lib/$(MULTI)
 PLIBGCC  := $(shell riscv64-unknown-elf-gcc -march=$(MARCH) -mabi=ilp32 -print-libgcc-file-name)
-PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS)) -DCPU_HZ=$(CPU_HZ)
+PFLAGS   := $(subst -march=rv32i ,-march=$(MARCH) ,$(CFLAGS)) -include $(CURDIR)/cpuhz.h
 IMG      := coremark.img
 CM       := coremark
 CM_SRC   := $(wildcard $(CM)/*.c)
@@ -102,13 +109,14 @@ build/cm_%.o: $(CM)/%.c $(wildcard $(CM)/*.h) march.name clock.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(CM_FLAGS) -c $< -o $@
 
-coremark.img: crt_psram.o $(CM_OBJ) psram.ld march.name
-	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax crt_psram.o $(CM_OBJ) \
+coremark.img: crt_psram.o $(CM_OBJ) build/fbcon.o psram.ld march.name
+	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax crt_psram.o $(CM_OBJ) build/fbcon.o \
 		--start-group $(PICOLIBC)/libc.a $(PICOLIBC)/libm.a $(PLIBGCC) --end-group -o coremark.elf
 	riscv64-unknown-elf-objcopy -O binary coremark.elf $@
 
-# Plain programs: one .c here or in ../riscv, plus the ../riscv printf/putchar.
-RT_OBJ := crt_psram.o build/print.o build/putchar.o
+# Plain programs: one .c here or in ../riscv, plus ../riscv's printf and fbcon.o
+# (the console + the putchar() that feeds it and the UART; see fbcon.h).
+RT_OBJ := crt_psram.o build/print.o build/fbcon.o
 
 build/%.o: %.c march.name clock.name
 	@mkdir -p build
@@ -118,20 +126,71 @@ build/%.o: $(RV)/%.c march.name
 	@mkdir -p build
 	riscv64-unknown-elf-gcc $(PFLAGS) -c $< -o $@
 
-build/putchar.o: $(RV)/putchar.s
-	@mkdir -p build
-	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
-
 %.img: build/%.o $(RT_OBJ) psram.ld
 	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax $(RT_OBJ) $< $(PLIBGCC) -o $*.elf
 	riscv64-unknown-elf-objcopy -O binary $*.elf $@
 
+# picChess (psram/chess/): the engine (chess/*.c) plus the ORIGINAL picChess
+# GUI (chess/gui/: chessVideo.c/chessInterface.c/h/chessSet.h and
+# chessGame.c's state machine, from before the project's 2014 refactor) on
+# top of a shim (chess/vga/) standing in for the dsPIC VGA/keyboard/serial/
+# clock/audio libraries it originally called. No RT_OBJ here -- this
+# doesn't use ../riscv's printf or the fbcon text console at all, it draws
+# straight into the framebuffer itself (see chess/vga/VGA.c). Needs
+# picolibc's libc.a for chessMoveGen.c's qsort and chessInterface.c's
+# ctype.h/string.h calls (like coremark.img).
+CHESS     := chess
+CHESS_SRC := $(wildcard $(CHESS)/*.c) $(wildcard $(CHESS)/gui/*.c) $(wildcard $(CHESS)/vga/*.c)
+CHESS_OBJ := $(addprefix build/chess_,$(notdir $(CHESS_SRC:.c=.o)))
+CHESS_INC   := -I$(CHESS) -I$(CHESS)/gui -I$(CHESS)/vga
+CHESS_FLAGS := $(PFLAGS) -fsigned-char $(CHESS_INC)
+# picolibc's signed-char ctype table (_ctype_b) isn't in libc.a; this file only needs ctype.
+build/chess_chessInterface.o: CHESS_FLAGS := $(PFLAGS) $(CHESS_INC)
+
+vpath %.c $(CHESS):$(CHESS)/gui:$(CHESS)/vga
+
+build/chess_%.o: %.c $(wildcard $(CHESS)/*.h $(CHESS)/gui/*.h $(CHESS)/vga/*.h) march.name clock.name
+	@mkdir -p build
+	riscv64-unknown-elf-gcc $(CHESS_FLAGS) -c $< -o $@
+
+chess.img: crt_psram.o $(CHESS_OBJ) build/fbcon.o psram.ld march.name
+	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax crt_psram.o $(CHESS_OBJ) build/fbcon.o \
+		--start-group $(PICOLIBC)/libc.a $(PLIBGCC) --end-group -o chess.elf
+	riscv64-unknown-elf-objcopy -O binary chess.elf $@
+	riscv64-unknown-elf-size -A chess.elf | head -4
+
+# Host build of the same engine + GUI for quick off-board checking: VGA.c's
+# swapV() dumps the monochrome board as ASCII art instead of blitting to a
+# real framebuffer, and getkey.c reads stdin (see the #ifdef HOST in each).
+# Not part of the board image.
+chess/host: $(CHESS_SRC)
+	cc -DHOST -O2 -Wall -I$(CHESS) -I$(CHESS)/gui -I$(CHESS)/vga -o $@ $(CHESS_SRC)
+
 load: $(IMG)
 	./load.py --baud $(BAUD) $(IMG)
 
-BUNDLE := mandel.img memtest.img coremark.img fbtest.img
+BUNDLE := menu.img mandel.img coremark.img memtest.img pi.img chess.img
 bundle: $(BUNDLE)
 	./load.py --baud $(BAUD) --bundle $^
+
+# Flash layout (see boot.c): bundle at 0x100000 (1 MB), Doom image at
+# 0x200000 (doom/Makefile's flash target).
+bundle.bin: $(BUNDLE)
+	./load.py --bundle --out $@ $^
+
+# Multi-boot bitstream flash: image 0 (power-on default) is the turbo build, image 1 the
+# safe one (SLOW=1); the menu's clock item warm-boots the other. Build each with
+# `make soc.bin [SLOW=1]` and copy soc.bin to $(TURBO) / $(SAFE), or seed-search by hand.
+TURBO ?= out/turbo.bin
+SAFE  ?= out/slow.bin
+multiboot.bin: $(TURBO) $(SAFE)
+	icemulti -p0 -o $@ $^
+
+flash-boot: multiboot.bin
+	iceprog $<
+
+flash-bundle: bundle.bin
+	iceprog -o 1M bundle.bin
 
 # Cycle-approximate simulator of this SoC: ./rvsim $(IMG)
 rvsim: rvsim.c
@@ -146,9 +205,10 @@ clean:
 	rm -f $(PROJ)_tb $(PROJ)_tb.vcd $(PROJ)_syn.v $(PROJ)_syntb $(PROJ)_syntb.vcd
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin clock.name
-	rm -f start.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump
+	rm -f start.o entry.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump boot_entry.h
 	rm -rf build crt_psram.o *.elf *.img march.name rvsim
+	rm -f bundle.bin multiboot.bin chess/host
 
 .SECONDARY:
 FORCE:
-.PHONY: all prog clean sim soc soc-prog load bundle FORCE
+.PHONY: flash-boot all prog clean sim soc soc-prog load bundle flash-bundle FORCE
