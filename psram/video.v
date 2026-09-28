@@ -10,6 +10,19 @@
 //   clocks) while rows 38+2L..39+2L show line L-1 from the other half.
 //   Palette: 256 x 12-bit 0xRGB in EBR, written from the CPU clock; starts as
 //   RGB 3-3-2. frames counts the frames the fetcher has finished reading.
+//   Game mode (game_we bit0, latched at frame start into game_mode_cur): for
+//   fb lines 0..167 the fetcher reads only 40 words/line (160 bytes, packed
+//   1 byte/pixel) from view buffer 0 (bytes 0..26879) or 1 (26880..53759),
+//   picked by front_req (bit1 of the same write, latched into front_cur,
+//   readable back as game_front so the CPU knows when its flip landed); lines
+//   168..199 (the status bar) always fetch 80 words/line from the normal
+//   320-wide layout, i.e. the same bytes (53760..63999) either way. The pixel
+//   side shows each of those 40 words' bytes 4 screen pixels wide instead of
+//   2, for display rows within the same v range the fetcher treats as packed
+//   (v<376, computed from v alone). game_mode/front_req only take effect at
+//   the next frame's first line request, so they are quasi-static by the time
+//   any consumer (either clock domain) reads them -- like req_first below,
+//   read directly across the crossing with no synchronizer.
 // Pixel clock 25.125 MHz (VESA: 25.175), 59.8 Hz frames, both sync pulses negative.
 // The pins are registered in their IO cells; the clock pin is a DDR output
 // inverted from clk_pix, so the TFP410 latches on its rising edge, mid data eye
@@ -23,6 +36,8 @@ module VIDEO (
     input      [3:0]  wmask,
     output     [31:0] rdata,
     input             pal_we,       // palette[wdata[23:16]] <= wdata[11:0]
+    input             game_we,      // game_mode <= wdata[0], front_req <= wdata[1]
+    output            game_front,   // front_cur: which view buffer is on screen now
     output reg [31:0] frames = 0,
 
     input             clk_pix,
@@ -37,7 +52,8 @@ module VIDEO (
     // CPU side: framebuffer and fetcher
     wire        cpu = sel && (rstrb || |wmask);
     reg  [13:0] fetch_addr = 0;     // next fb word to fetch
-    reg  [6:0]  n = 7'd80;          // words of the line fetched, 80: done
+    reg  [6:0]  n = 7'd80;          // words of the line fetched: 80 or 40, done
+    reg  [7:0]  line = 0;           // fb line (0..199) currently being fetched
     reg         half = 0;
     reg  [2:0]  req_s = 0;          // req_t synchronized, and its previous value
     reg         lb_we = 0;
@@ -45,14 +61,37 @@ module VIDEO (
     reg  [31:0] lbuf [0:255];
     wire [13:0] fb_addr = cpu ? addr[15:2] : fetch_addr;
 
+    reg         game_mode = 0, front_req = 0;          // CPU requests, plain regs
+    reg         game_mode_cur = 0, front_cur = 0;      // latched at frame start
+    assign      game_front = front_cur;
+    always @(posedge clk) if (game_we) begin
+        game_mode <= wdata[0];
+        front_req <= wdata[1];
+    end
+
+    wire [6:0] words_this_line = (game_mode_cur && line < 8'd168) ? 7'd40 : 7'd80;
+
     always @(posedge clk) begin
         req_s <= {req_s[1:0], req_t};
         lb_we <= 0;
         if (req_s[2] != req_s[1]) begin
             n <= 0;
-            if (req_first) begin fetch_addr <= 0; half <= 0; end
-            else half <= !half;
-        end else if (n != 7'd80 && !cpu) begin
+            if (req_first) begin
+                fetch_addr    <= (game_mode && front_req) ? 14'd6720 : 14'd0;
+                half          <= 0;
+                line          <= 0;
+                game_mode_cur <= game_mode;
+                front_cur     <= front_req;
+            end else begin
+                half <= !half;
+                // Buffer 0's view rows (0..167) end at word 6720, short of the
+                // status bar's fixed 13440; buffer 1's end right at 13440 (no
+                // gap). Only the former needs an explicit jump.
+                if (game_mode_cur && !front_cur && line == 8'd167)
+                    fetch_addr <= 14'd13440;
+                line <= line + 1;
+            end
+        end else if (n != words_this_line && !cpu) begin
             lb_we      <= 1;        // the word read this cycle is on rdata the next
             lb_wa      <= {half, n};
             n          <= n + 1;
@@ -96,6 +135,10 @@ module VIDEO (
     wire image  = active && v >= 10'd40 && v < 10'd440;
     wire hs = !(h >= 10'd656 && h < 10'd752);
     wire vs = !(v >= 10'd490 && v < 10'd492);
+    // fb line L = (v-40)>>1; L<168 <=> v<376. game_mode_cur crosses from clk
+    // (see the module comment): safe here since it only changes right after
+    // v==38's request, tens of clk_pix cycles before v==40 starts the image.
+    wire game_row = game_mode_cur && v < 10'd376;
 
     // Pipeline: line buffer word, byte -> palette, then the IO registers.
     reg [31:0] word;
@@ -103,8 +146,11 @@ module VIDEO (
     reg [11:0] rgb;
     reg [3:0]  sync_q, sync_qq;     // {image, hs, vs, active}, 2 clocks
     always @(posedge clk_pix) begin
-        word      <= lbuf[{v[1], h[9:3]}];
-        sel_q     <= h[2:1];
+        // Normal: 80 words/line, byte h[2:1] (2 screen pixels wide). Game: 40
+        // words/line (only the low half of lbuf's 80-word half is filled), byte
+        // h[3:2] (4 screen pixels wide).
+        word      <= lbuf[{v[1], game_row ? {1'b0, h[9:4]} : h[9:3]}];
+        sel_q     <= game_row ? h[3:2] : h[2:1];
         rgb       <= pal[word[8 * sel_q +: 8]];
         sync_q    <= {image, hs, vs, active};
         sync_qq   <= sync_q;

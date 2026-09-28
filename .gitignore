@@ -128,6 +128,7 @@ psram/bench.vcd
 # PSRAM images uploaded by the bootloader
 *.img
 psram/build/
+psram/boot_entry.h
 *.pyc
 psram/march.name
 psram/clock.name
@@ -138,3 +139,4 @@ psram/rvsim
 
 # Claude Code
 .claude/
+psram/out/

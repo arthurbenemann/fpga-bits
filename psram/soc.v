@@ -9,6 +9,7 @@
 `include "psram_spi.v"
 `include "psram_bus.v"
 `include "uart_fifo.v"
+`include "flash_spi.v"
 `ifdef VIDEO
 `include "video.v"
 `endif
@@ -22,7 +23,13 @@ module PSRAM_SOC (
     output           TXD,
     inout      [3:0] RAM_SIO,   // SIO3 is also the microSD DAT3/CS, held high when idle
     output           RAM_CE_B,
-    output           RAM_CLK
+    output           RAM_CLK,
+    output           FLASH_SCK,
+    output           FLASH_SSB,
+    output           FLASH_IO0,  // MOSI
+    input            FLASH_IO1,  // MISO
+    output           FLASH_IO2,  // WP#, held high (unused: single SPI)
+    output           FLASH_IO3   // HOLD#, held high
 `ifdef VIDEO
    ,output     [3:0] DVI_R,
     output     [3:0] DVI_G,
@@ -38,17 +45,22 @@ module PSRAM_SOC (
     // (SCLK is half of it), and a counter divides it back down for the CPU; the
     // engine's req/ack handshake doesn't care about the ratio. The engine tops out
     // near 80 MHz. PLL: 12 * (DIVF+1) / 2^DIVQ, VCO 12 * (DIVF+1) in 533..1066.
-    // VIDEO: engine 50.25 MHz (DIVF 66, DIVQ 4), pixel clock half of it, CPU a
-    // quarter, 12.5625 MHz; the UART divides that by 4 to 3.140625 Mbaud, which
-    // the FT2232H (12 MHz / n, n in eighths) gets within 1.4% of.
+    // VIDEO: engine 50.25 MHz (DIVF 66, DIVQ 4), pixel clock half of it, CPU the
+    // same 25.125 MHz (same net as clk_pix, through its own SB_GB); the UART
+    // divides that by 8 to 3.140625 Mbaud, which the FT2232H (12 MHz / n, n in
+    // eighths) gets within 1.4% of.
     // Otherwise the CPU clock is CPU_MHZ (make CPU_MHZ=...): a multiple of 3, so
     // the UART divides it exactly to 3 Mbaud. 15 MHz: engine 60, SCLK 30. Above
     // 20 MHz the ratio is 2.
 `ifdef VIDEO
-    localparam SPI_DIV = 4;
+`ifdef SLOW
+    localparam SPI_DIV = 4;           // safe: CPU at 12.5625 MHz (the pixel clock stays 25.125)
+`else
+    localparam SPI_DIV = 2;           // turbo: CPU at 25.125 MHz
+`endif
     localparam DIVQ = 4;
     localparam DIVF = 66;
-    localparam UART_DIV = 4;
+    localparam UART_DIV = 16 / SPI_DIV;
 `else
 `ifndef CPU_MHZ
 `define CPU_MHZ 15
@@ -113,29 +125,51 @@ module PSRAM_SOC (
     localparam IO_MANDEL_CR     = 5;  //   so mandel.c runs on either
     localparam IO_MANDEL_CI     = 6;
     localparam IO_MANDEL_IT     = 7;  // R iterations left, W max iterations
-    localparam IO_UART_RX_bit   = 8;  // R {valid, byte}; reading clears valid
+    localparam IO_UART_RX_bit   = 8;  // R {valid, byte}; reading pops the 512-byte FIFO
     localparam IO_VIDEO_bit     = 9;  // W palette entry {index, 4'b0, 0xRGB} (bits 23:16, 11:0),
-                                      //   R frames the video has finished reading
+                                      //   R {game_front, frames[30:0]}
+    localparam IO_GAME_bit      = 10; // W {front_req, game_mode} (bits 1, 0): low-detail
+                                      //   double-buffered game view (see video.v)
+    localparam IO_FLASH_ADDR_bit= 11; // W start_addr[23:0]: (re)start a streamed read.
+    localparam IO_FLASH_DATA_bit= 12; //   R ready (bit 0) on ADDR, R next word (pops) on
+    localparam IO_FLASH_END_bit = 13; //   DATA, W (any value) on END raises CS. See flash_spi.v.
+    localparam IO_CLOCK_bit     = 14; // R CPU clock in Hz. W {S1, S0}: warm-boot flash image 0..3
+                                      //   (the multi-boot flash holds turbo and safe builds)
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
     wire [31:0] psram_rdata;
     wire [31:0] fb_rdata;
     wire [31:0] frames;
+    wire        game_front;
     wire        tx_full;
     wire        psram_rbusy, psram_wbusy;
+    wire        flash_ready;
+    wire [31:0] flash_rdata;
 
     wire [31:0] IO_rdata =
         mem_wordaddr[IO_UART_CNTL_bit] ? {22'b0, tx_full, 9'b0} :
         mem_wordaddr[IO_COUNTER_bit]   ? counter :
-        mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_read} :
+        mem_wordaddr[IO_UART_RX_bit]   ? {23'b0, rx_full, rx_data} :
         mem_wordaddr[IO_MANDEL_CTRL]   ? mandel_ready :
         mem_wordaddr[IO_MANDEL_IT]     ? mandel_iteration :
-        mem_wordaddr[IO_VIDEO_bit]     ? frames
+        mem_wordaddr[IO_VIDEO_bit]     ? {game_front, frames[30:0]} :
+        mem_wordaddr[IO_FLASH_ADDR_bit]? {31'b0, flash_ready} :
+        mem_wordaddr[IO_FLASH_DATA_bit]? flash_rdata :
+        mem_wordaddr[IO_CLOCK_bit]     ? 50250000 / SPI_DIV
                                        : 32'b0;
-    assign mem_rdata = isPSRAM ? psram_rdata :
-                       isRAM   ? RAM_rdata   :
-                       isFB    ? fb_rdata    : IO_rdata;
+    // Read data comes a cycle after the strobe, when the address may have moved
+    // on (ProcessorPipe): the region and the IO value are latched on the strobe.
+    // RAM and FB are both registered reads (1 cycle), like PSRAM on a cache hit.
+    reg  [1:0]  rd_sel;   // 3 PSRAM, 2 RAM, 1 FB, 0 IO
+    reg  [31:0] IO_q;
+    always @(posedge clk) if (mem_rstrb) begin
+        rd_sel <= isPSRAM ? 2'd3 : isRAM ? 2'd2 : isFB ? 2'd1 : 2'd0;
+        IO_q   <= IO_rdata;
+    end
+    assign mem_rdata = rd_sel == 2'd3 ? psram_rdata :
+                       rd_sel == 2'd2 ? RAM_rdata   :
+                       rd_sel == 2'd1 ? fb_rdata    : IO_q;
 
     Memory RAM(
         .clk(clk),
@@ -146,7 +180,11 @@ module PSRAM_SOC (
         .mem_wmask({4{isRAM}} & mem_wmask)
     );
 
+`ifdef PIPE
+    ProcessorPipe CPU(
+`else
     Processor CPU(
+`endif
         .clk(clk),
         .resetn(resetn),
         .mem_addr(mem_addr),
@@ -182,6 +220,16 @@ module PSRAM_SOC (
         if (isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_IT]) mandel_max_it <= mem_wdata;
     end
 
+`ifndef BENCH
+    reg [1:0] wb_sel;
+    reg       wb_boot = 0;
+    always @(posedge clk) begin
+        wb_boot <= isIO & mem_wstrb & mem_wordaddr[IO_CLOCK_bit];
+        if (isIO & mem_wstrb & mem_wordaddr[IO_CLOCK_bit]) wb_sel <= mem_wdata[1:0];
+    end
+    SB_WARMBOOT warm(.BOOT(wb_boot), .S1(wb_sel[1]), .S0(wb_sel[0]));
+`endif
+
     wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
 
     UART_TX_FIFO #(.CLKS_PER_BIT(UART_DIV)) UART(
@@ -190,21 +238,24 @@ module PSRAM_SOC (
 
     free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));
 
-    // One-byte receive buffer. The CPU samples IO data a cycle after the load
-    // strobe, so the register value is latched on the strobe, which also clears it.
+    // Receive FIFO: IO_q latches {valid, byte} on the load strobe, which also pops it.
     wire [7:0] rx_data;
-    wire       rx_valid;
-    reg        rx_full = 1'b0;
-    reg  [8:0] rx_read;
+    wire       rx_full;
     wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
 
-    UART_RX #(.CLKS_PER_BIT(UART_DIV)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
+    UART_RX_FIFO #(.CLKS_PER_BIT(UART_DIV)) UART_RX(.clk(clk), .rx(RXD), .pop(rx_rd), .q(rx_data), .q_valid(rx_full));
 
-    always @(posedge clk) begin
-        if (rx_rd) rx_read <= {rx_full, rx_data};
-        if (rx_valid) rx_full <= 1'b1;
-        else if (rx_rd) rx_full <= 1'b0;
-    end
+    FLASH_SPI flash(
+        .clk(clk),
+        .start(isIO & mem_wstrb & mem_wordaddr[IO_FLASH_ADDR_bit]),
+        .start_addr(mem_wdata[23:0]),
+        .pop(isIO & mem_rstrb & mem_wordaddr[IO_FLASH_DATA_bit]),
+        .stop(isIO & mem_wstrb & mem_wordaddr[IO_FLASH_END_bit]),
+        .rdata(flash_rdata),
+        .ready(flash_ready),
+        .sck(FLASH_SCK), .mosi(FLASH_IO0), .miso(FLASH_IO1), .ssb(FLASH_SSB),
+        .io2(FLASH_IO2), .io3(FLASH_IO3)
+    );
 
     PSRAM_BUS psram(
         .clk(clk),
@@ -232,14 +283,17 @@ module PSRAM_SOC (
         .wmask(mem_wmask),
         .rdata(fb_rdata),
         .pal_we(isIO & mem_wstrb & mem_wordaddr[IO_VIDEO_bit]),
+        .game_we(isIO & mem_wstrb & mem_wordaddr[IO_GAME_bit]),
+        .game_front(game_front),
         .frames(frames),
         .clk_pix(clk_pix),
         .dvi_r(DVI_R), .dvi_g(DVI_G), .dvi_b(DVI_B),
         .dvi_clk(DVI_CLK), .dvi_hs(DVI_HS), .dvi_vs(DVI_VS), .dvi_de(DVI_DE)
     );
 `else
-    assign fb_rdata = 32'b0;
-    assign frames   = 32'b0;
+    assign fb_rdata   = 32'b0;
+    assign frames     = 32'b0;
+    assign game_front = 1'b0;
 `endif
 
     `ifdef BENCH
