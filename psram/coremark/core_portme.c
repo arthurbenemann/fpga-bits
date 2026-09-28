@@ -3,6 +3,8 @@
    barebones/core_portme.c. */
 #include "coremark.h"
 #include "core_portme.h"
+#include "../fbcon.h"
+void uart_send_char(char c);
 
 #define IO_BASE          0x400000
 #define IO_REG(off)      (*(volatile ee_u32 *)(IO_BASE + (off)))
@@ -57,17 +59,24 @@ void portable_init(core_portable *p, int *argc, char *argv[])
 {
     (void)argc;
     (void)argv;
+    con_init();          // also clears the screen and turns game mode off
+    for (const char *m = "CoreMark: running, about 15 s...\n\n"; *m; ++m) uart_send_char(*m);
     p->portable_id = 1;
 }
 
 void portable_fini(core_portable *p)
 {
     p->portable_id = 0;
+    for (const char *m = "\nPress a key for the menu"; *m; ++m) uart_send_char(*m);
+    con_waitkey();
 }
 
+// CoreMark's output (ee_printf, via ee_vsprintf then this) goes to both the
+// UART and the HDMI console.
 void uart_send_char(char c)
 {
     if (c == '\n') uart_send_char('\r');
     while (IO_UART_CNTL & (1 << 9));
     IO_UART_DAT = c;
+    con_putc(c);
 }

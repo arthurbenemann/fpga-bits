@@ -2,6 +2,7 @@
 // above its own image up to the program bundle (top 1 MB, see boot.c); its own
 // few KB and the bundle stay untested. A key returns to the bootloader after a pass.
 #include <stdint.h>
+#include "fbcon.h"
 
 #define IO_BASE      0x400000
 #define IO_LEDS      4
@@ -78,7 +79,9 @@ static void test_exec(void)
 
 int main()
 {
-    printf("\r\nPSRAM test %x..%x, %d KB (key: stop after the pass)\r\n", BASE, PSRAM_END, (PSRAM_END - BASE) >> 10);
+    con_init();
+    con_attach();
+    printf("\r\nPSRAM test %x..%x, %d KB (key: menu)\r\n", BASE, PSRAM_END, (PSRAM_END - BASE) >> 10);
 
     for (uint32_t pass = 0;; ++pass) {
         uint32_t k = (pass & 1) ? ~0xA5C3F00Fu : 0xA5C3F00Fu;
@@ -109,6 +112,6 @@ int main()
         printf("\r\npass %d: %d errors (subword, exec, words), write %d ms, read %d ms\r\n",
                pass, errors, (t1 - t0) / CLK_KHZ, (t2 - t1) / CLK_KHZ);
         IO_OUT(IO_LEDS, errors ? 0x1F : pass);
-        if (IO_IN(IO_UART_RX) & 0x100) return 0;
+        if (con_key() >= 0) return 0;
     }
 }

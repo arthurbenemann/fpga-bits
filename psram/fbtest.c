@@ -92,8 +92,9 @@ static void mandel(void)
 
 int main()
 {
-    // The bootloader's XOR screen: word i of row 0 is 0x03020100 + 0x04040404 * i.
-    printf("\r\nframebuffer test: frames %d, fb words 0-3 %x %x %x %x (boot: 03020100 07060504 0B0A0908 0F0E0D0C)\r\n",
+    // fb words 0-3 are whatever the previous program (e.g. the menu) left there;
+    // the bootloader no longer draws a fixed test pattern.
+    printf("\r\nframebuffer test: frames %d, fb words 0-3 %x %x %x %x\r\n",
            IO_IN(IO_VIDEO), fb32[0], fb32[1], fb32[2], fb32[3]);
     test_memory();
 
