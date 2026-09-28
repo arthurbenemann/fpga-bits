@@ -2,8 +2,9 @@ PROJ = riscv
 
 all: $(PROJ).rpt $(PROJ).bin
 
-$(PROJ).json: $(PROJ).v uart_rx.v emitter_uart.v clockworks.v assemble.hexdump
-	yosys -ql $(PROJ).yslog -p 'synth_ice40 -dsp -top SOC -json $@' $<
+# PIPE=1: the pipelined core (pipe.v) instead of Processor.
+$(PROJ).json: $(PROJ).v pipe.v uart_rx.v emitter_uart.v clockworks.v assemble.hexdump
+	yosys -ql $(PROJ).yslog -p 'read_verilog $(if $(PIPE),-DPIPE) $<; synth_ice40 -dsp -top SOC -json $@'
 
 $(PROJ).asc: $(PROJ).json icebreaker.pcf
 	nextpnr-ice40 -ql $(PROJ).nplog --up5k --package sg48 --freq 12 --asc $@ --pcf icebreaker.pcf --json $<
@@ -59,7 +60,7 @@ compile:
 	hexdump --no-squeezing -e '"%08x\n"' b.bin > assemble.hexdump
 
 $(PROJ).out: $(PROJ).v bench_iverilog.v
-	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
+	iverilog -DBENCH $(if $(PIPE),-DPIPE) -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
 
 
 clean:

@@ -1,5 +1,6 @@
 `include "clockworks.v"
 `include "emitter_uart.v"
+`include "pipe.v"
 `include "uart_rx.v"
 
 
@@ -539,14 +540,20 @@ module SOC (
     wire [31:0] counter;
     
 
-    wire [31:0] IO_rdata = 
+    wire [31:0] IO_rdata =
         mem_wordaddr[IO_UART_CNTL_bit]  ? { 22'b0, !uart_ready, 9'b0} :
         mem_wordaddr[IO_COUNTER_bit]    ? counter:
         mem_wordaddr[IO_MANDEL_CTRL]    ? mandel_ready:
         mem_wordaddr[IO_MANDEL_IT]      ? mandel_iteration:
-        mem_wordaddr[IO_UART_RX_bit]    ? {23'b0, rx_read}
+        mem_wordaddr[IO_UART_RX_bit]    ? {23'b0, rx_full, rx_data}
                                         : 32'b0;
-    assign mem_rdata = isRAM ? RAM_rdata : IO_rdata ;
+
+    // Read data comes a cycle after the strobe, when the address may have moved
+    // on (ProcessorPipe): the region and the IO value are latched on the strobe.
+    reg        rd_ram;
+    reg [31:0] IO_q;
+    always @(posedge clk) if (mem_rstrb) begin rd_ram <= isRAM; IO_q <= IO_rdata; end
+    assign mem_rdata = rd_ram ? RAM_rdata : IO_q;
 
 
     Memory RAM(
@@ -558,11 +565,15 @@ module SOC (
         .mem_wmask({4{isRAM}}&mem_wmask)
     );
 
+`ifdef PIPE
+    ProcessorPipe CPU(
+`else
     Processor CPU(
+`endif
     .clk(clk),
-        .resetn(resetn),		 
-    .mem_addr(mem_addr), 
-    .mem_rdata(mem_rdata), 
+        .resetn(resetn),
+    .mem_addr(mem_addr),
+    .mem_rdata(mem_rdata),
     .mem_rstrb(mem_rstrb),
     .mem_rbusy(1'b0),
     .mem_wdata(mem_wdata),
@@ -605,18 +616,15 @@ module SOC (
     // Free running counter at Fin
     free_cnt f_cnt1(.clk(clk), .resetn(resetn), .cnt(counter));
 
-    // One-byte receive buffer. The CPU samples IO data a cycle after the load
-    // strobe, so the register value is latched on the strobe, which also clears it.
+    // One-byte receive buffer. IO_q latches it on the load strobe, which also clears it.
     wire [7:0] rx_data;
     wire       rx_valid;
     reg        rx_full = 1'b0;
-    reg  [8:0] rx_read;
     wire       rx_rd = isIO & mem_rstrb & mem_wordaddr[IO_UART_RX_bit];
 
     UART_RX #(.CLKS_PER_BIT(4)) UART_RX(.clk(clk), .rx(RXD), .data(rx_data), .valid(rx_valid));
 
     always @(posedge clk) begin
-        if (rx_rd) rx_read <= {rx_full, rx_data};
         if (rx_valid) rx_full <= 1'b1;
         else if (rx_rd) rx_full <= 1'b0;
     end
