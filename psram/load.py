@@ -24,8 +24,72 @@ import threading
 import time
 import tty
 
-BANNER = b"boot: waiting for image"
+# Printed once the board is idle again, ready for the next command: by boot.c
+# itself if no bundle is stored, or by the menu (see menu.c) once one is.
+BANNER = (b"boot: waiting for image", b"boot: menu ready")
 BUNDLE_SIZE = 1 << 20                                   # boot.c BUNDLE..BUNDLE_END
+
+# ---- --keys: read the physical keyboard via evdev and send real press/release
+# events to the board (protocol: press = code byte, release = 0xF0, code byte).
+# Codes are either plain ASCII (which dg_uart.c's doomkey() already maps) or,
+# for keys with no ASCII meaning, Doom's own KEY_* values (doomkeys.h), which
+# doomkey() passes through unchanged since they're all >= 0x80.
+KBD_GLOB = "/dev/input/by-id/*-event-kbd"
+EVENT_FMT = "llHHi"                                     # struct input_event (native sizes)
+EV_KEY = 1
+DOOM_KEYS = {                                            # Linux keycode -> byte
+    1: 27, 28: 13, 57: ord(" "), 15: 9, 14: 0x7f,         # Esc Enter Space Tab Backspace
+    29: 0xa3, 97: 0xa3,                                   # Ctrl -> KEY_FIRE
+    42: 0xb6, 54: 0xb6,                                   # Shift -> KEY_RSHIFT (run)
+    56: 0xb8, 100: 0xb8,                                  # Alt -> KEY_RALT (strafe)
+    103: 0xad, 108: 0xaf, 105: 0xac, 106: 0xae,            # arrows -> KEY_*ARROW
+}
+# Letters, digits and punctuation: Linux keycodes -> ASCII (lower case; Shift is 0xb6).
+for row, first in (("qwertyuiop", 16), ("asdfghjkl", 30), ("zxcvbnm", 44)):
+    for i, ch in enumerate(row):
+        DOOM_KEYS[first + i] = ord(ch)
+for i, ch in enumerate("1234567890-="):
+    DOOM_KEYS[2 + i] = ord(ch)
+DOOM_KEYS.update({51: ord(","), 52: ord("."), 53: ord("/"), 39: ord(";"), 26: ord("["), 27: ord("]")})
+
+
+def read_keys(kfd, fd):
+    """Forward one evdev keyboard's press/release events to the board, forever."""
+    sz = struct.calcsize(EVENT_FMT)
+    buf = b""
+    while True:
+        buf += os.read(kfd, 4096)
+        while len(buf) >= sz:
+            ev, buf = buf[:sz], buf[sz:]
+            _, _, etype, code, value = struct.unpack(EVENT_FMT, ev)
+            if etype == EV_KEY and value in (0, 1) and code in DOOM_KEYS:
+                k = DOOM_KEYS[code]
+                os.write(fd, bytes([k]) if value else bytes([0xf0, k]))
+
+
+def start_keys(fd):
+    """Start a reader thread per keyboard found via evdev. Returns True if at
+    least one was opened (stdin keystrokes should then not also be forwarded),
+    False to fall back to the old typed-keys behaviour."""
+    paths = glob.glob(KBD_GLOB)
+    if not paths:
+        print(f"--keys: no keyboard found ({KBD_GLOB}); falling back to typed keys",
+              file=sys.stderr)
+        return False
+    opened = []
+    for p in paths:
+        try:
+            opened.append(os.open(p, os.O_RDONLY))
+        except PermissionError:
+            pass
+    if not opened:
+        print("--keys: can't read /dev/input (you're not in the 'input' group).\n"
+              "Run: sudo usermod -aG input $USER, then log out and back in.\n"
+              "Falling back to typed keys for now.", file=sys.stderr)
+        return False
+    for kfd in opened:
+        threading.Thread(target=read_keys, args=(kfd, fd), daemon=True).start()
+    return True
 
 
 def bundle(paths):
@@ -77,34 +141,54 @@ def open_port(dev, baud):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("image", nargs="+", help="one image, or several with --bundle")
+    ap.add_argument("image", nargs="*", help="one image, or several with --bundle")
+    ap.add_argument("--attach", action="store_true", help="no upload: talk to the running program")
     ap.add_argument("--bundle", action="store_true", help="store the images for the menu")
+    ap.add_argument("--out", help="write the bundle to this file instead of uploading it "
+                                   "(for flashing at 0x100000; see psram/Makefile flash-bundle)")
     ap.add_argument("--port", help="serial device (default: find the iCEBreaker)")
     ap.add_argument("--baud", type=int, default=3140625, help="the SoC's UART rate (Makefile BAUD)")
     ap.add_argument("--timeout", type=float, default=600, help="seconds to wait for the program")
+    ap.add_argument("--keys", action="store_true",
+                     help="read the keyboard directly via evdev for real press/release events "
+                          "(needs the 'input' group); Ctrl-C still quits")
     args = ap.parse_args()
 
-    if args.bundle:
+    if args.attach:
+        img = None
+    elif args.bundle:
         img = bundle(args.image)
     elif len(args.image) == 1:
         img = open(args.image[0], "rb").read()
     else:
         sys.exit("several images need --bundle")
+
+    if args.out:
+        if not args.bundle:
+            sys.exit("--out is for --bundle (the flash format has no length prefix)")
+        open(args.out, "wb").write(img)
+        return
+
     fd = open_port(args.port or find_port(), args.baud)
 
-    os.write(fd, b"\2" if args.bundle else b"\1")    # command, then let boot.c reach rx()
-    time.sleep(0.01)
-    payload = len(img).to_bytes(4, "little") + img
-    while payload:
-        payload = payload[os.write(fd, payload):]
-    termios.tcdrain(fd)
+    if img is not None:
+        os.write(fd, b"\2" if args.bundle else b"\1")    # command, then let boot.c reach rx()
+        time.sleep(0.01)
+        payload = len(img).to_bytes(4, "little") + img
+        while payload:
+            payload = payload[os.write(fd, payload):]
+        termios.tcdrain(fd)
 
     keys = sys.stdin.fileno() if sys.stdin.isatty() else None
     if keys is not None:
         saved = termios.tcgetattr(keys)
         tty.setcbreak(keys)                             # unbuffered, no echo; Ctrl-C still works
+    forward_stdin = keys
+    if args.keys and start_keys(fd):
+        forward_stdin = None                            # evdev sends key events; don't double up
     try:
-        run(fd, keys, img, float("inf") if args.bundle else args.timeout, not args.bundle)
+        run(fd, forward_stdin, img, float("inf") if args.bundle or args.attach else args.timeout,
+            not (args.bundle or args.attach))
     except KeyboardInterrupt:
         pass
     finally:
@@ -118,7 +202,7 @@ def run(fd, keys, img, timeout, until_boot):
     rx = queue.Queue()
     threading.Thread(target=lambda: [rx.put(os.read(fd, 65536)) for _ in iter(int, 1)], daemon=True).start()
     out = b""                                           # output so far, until checked
-    checked = None                                      # the checksum line was seen
+    checked = img is None                               # the checksum line was seen (or nothing sent)
     deadline = time.time() + timeout
     while time.time() < deadline:
         if keys is not None and select.select([keys], [], [], 0)[0]:
@@ -141,8 +225,8 @@ def run(fd, keys, img, timeout, until_boot):
                 if (n, s) != (len(img), sum(img) & 0xFFFFFFFF):
                     sys.exit(f"\nupload corrupted: board got {n} bytes sum {s:08X}, "
                              f"sent {len(img)} bytes sum {sum(img) & 0xFFFFFFFF:08X}")
-        if until_boot and checked and BANNER in out:
-            return                                      # program returned to the bootloader
+        if until_boot and checked and any(b in out for b in BANNER):
+            return                                      # program returned to the bootloader/menu
     sys.exit("\ntimeout" if checked else "\nno reply: is the board in the bootloader?")
 
 if __name__ == "__main__":
