@@ -123,19 +123,19 @@ isim.log
 *.hexdump
 *.o
 *.elf
-psram/bench.vcd
+ice40/psram/bench.vcd
 
 # PSRAM images uploaded by the bootloader
 *.img
-psram/build/
-psram/boot_entry.h
+ice40/psram/build/
+ice40/psram/boot_entry.h
 *.pyc
-psram/march.name
-psram/clock.name
-doom/build/
-doom/doom.map
-doom/*.wad
+ice40/psram/march.name
+ice40/psram/clock.name
+ice40/doom/build/
+ice40/doom/doom.map
+ice40/doom/*.wad
 
 # Claude Code
 .claude/
-psram/out/
+ice40/psram/out/
