@@ -133,8 +133,7 @@ module PSRAM_SOC (
     localparam IO_FLASH_ADDR_bit= 11; // W start_addr[23:0]: (re)start a streamed read.
     localparam IO_FLASH_DATA_bit= 12; //   R ready (bit 0) on ADDR, R next word (pops) on
     localparam IO_FLASH_END_bit = 13; //   DATA, W (any value) on END raises CS. See flash_spi.v.
-    localparam IO_CLOCK_bit     = 14; // R CPU clock in Hz. W {S1, S0}: warm-boot flash image 0..3
-                                      //   (the multi-boot flash holds turbo and safe builds)
+    localparam IO_CLOCK_bit     = 14; // R CPU clock in Hz (turbo or SLOW build)
 
     wire [31:0] RAM_rdata;
     wire [31:0] counter;
@@ -219,16 +218,6 @@ module PSRAM_SOC (
         if (isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_CI]) Ci <= mem_wdata;
         if (isIO & mem_wstrb & mem_wordaddr[IO_MANDEL_IT]) mandel_max_it <= mem_wdata;
     end
-
-`ifndef BENCH
-    reg [1:0] wb_sel;
-    reg       wb_boot = 0;
-    always @(posedge clk) begin
-        wb_boot <= isIO & mem_wstrb & mem_wordaddr[IO_CLOCK_bit];
-        if (isIO & mem_wstrb & mem_wordaddr[IO_CLOCK_bit]) wb_sel <= mem_wdata[1:0];
-    end
-    SB_WARMBOOT warm(.BOOT(wb_boot), .S1(wb_sel[1]), .S0(wb_sel[0]));
-`endif
 
     wire uart_valid = isIO & mem_wstrb & mem_wordaddr[IO_UART_DAT_bit];
 

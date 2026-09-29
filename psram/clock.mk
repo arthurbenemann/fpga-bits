@@ -5,8 +5,8 @@
 VIDEO   := 1
 CPU_MHZ := 15
 PIPE    := 1
-# SLOW=1: VIDEO build with the CPU at half speed (12.5625 MHz), the safe fallback that
-# the multi-boot flash carries next to the turbo build (make flash-all).
+# SLOW=1: VIDEO build with the CPU at half speed (12.5625 MHz), in spec: the safe fallback
+# if a turbo build's placement turns out flaky.
 SLOW    := 0
 ifeq ($(VIDEO),1)
 BAUD    := 3140625

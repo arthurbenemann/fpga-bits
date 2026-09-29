@@ -1,7 +1,6 @@
 # Doom (doom-ascii / doomgeneric) as a PSRAM image for ../psram/soc.v.
 #   make WAD=/path/to/doom1.wad     -> doom.img (program + IWAD, 5 MB: ~17 s upload)
 #   make load                       upload it (real key events via evdev; needs the 'input' group)
-#   make sim                        run doom.img in ../psram/rvsim
 # The upstream source is cloned into build/ at a pinned commit (not vendored);
 # SRC=<dir> uses another checkout. DOOM_ARGS adds command-line arguments, e.g.
 # DOOM_ARGS='"-timedemo","demo1",'. BLOCKS (3..11) and LOWDETAIL set the view.
@@ -136,16 +135,10 @@ doom_flash.bin: doom.img
 flash: doom_flash.bin
 	iceprog -o 2M doom_flash.bin
 
-../psram/rvsim: ../psram/rvsim.c
-	$(MAKE) -C ../psram rvsim
-
-sim: doom.img ../psram/rvsim
-	../psram/rvsim doom.img -p 0x$$(riscv64-unknown-elf-nm doom.elf | grep -w I_FinishUpdate | cut -d' ' -f1)
-
 clean:
 	rm -rf build/*.o doom.elf doom.img doom.map doom_flash.bin
 
-.PHONY: all clean sim load flash
+.PHONY: all clean load flash
 
 FORCE:
 .PHONY: FORCE

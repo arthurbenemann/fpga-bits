@@ -135,7 +135,6 @@ psram/clock.name
 doom/build/
 doom/doom.map
 doom/*.wad
-psram/rvsim
 
 # Claude Code
 .claude/

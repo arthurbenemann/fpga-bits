@@ -84,7 +84,7 @@ assemble.hexdump boot_entry.h &: boot.c entry.s $(RV)/start.s $(RV)/putchar.s $(
 build/menu.o: boot_entry.h
 
 # Programs that run from PSRAM, uploaded by the bootloader:
-#   make load IMG=mandel.img | memtest.img | coremark.img | fbtest.img
+#   make load IMG=mandel.img | memtest.img | coremark.img | pi.img | chess.img
 #   make bundle: all of them at once (menu.img first), picked from the menu
 # MARCH: rv32i_zmmul, rv32im (CPU built with DIV=1) or rv32i.
 MARCH    := rv32i_zmmul
@@ -178,23 +178,8 @@ bundle: $(BUNDLE)
 bundle.bin: $(BUNDLE)
 	./load.py --bundle --out $@ $^
 
-# Multi-boot bitstream flash: image 0 (power-on default) is the turbo build, image 1 the
-# safe one (SLOW=1); the menu's clock item warm-boots the other. Build each with
-# `make soc.bin [SLOW=1]` and copy soc.bin to $(TURBO) / $(SAFE), or seed-search by hand.
-TURBO ?= out/turbo.bin
-SAFE  ?= out/slow.bin
-multiboot.bin: $(TURBO) $(SAFE)
-	icemulti -p0 -o $@ $^
-
-flash-boot: multiboot.bin
-	iceprog $<
-
 flash-bundle: bundle.bin
 	iceprog -o 1M bundle.bin
-
-# Cycle-approximate simulator of this SoC: ./rvsim $(IMG)
-rvsim: rvsim.c
-	cc -O2 -Wall -o $@ $<
 
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
@@ -206,9 +191,9 @@ clean:
 	rm -f $(PROJ).out
 	rm -f soc.yslog soc.nplog soc.json soc.asc soc.bin clock.name
 	rm -f start.o entry.o putchar.o print.o boot.o fw.elf fw.bin assemble.hexdump boot_entry.h
-	rm -rf build crt_psram.o *.elf *.img march.name rvsim
-	rm -f bundle.bin multiboot.bin chess/host
+	rm -rf build crt_psram.o *.elf *.img march.name
+	rm -f bundle.bin chess/host
 
 .SECONDARY:
 FORCE:
-.PHONY: flash-boot all prog clean sim soc soc-prog load bundle flash-bundle FORCE
+.PHONY: all prog clean sim soc soc-prog load bundle flash-bundle FORCE
