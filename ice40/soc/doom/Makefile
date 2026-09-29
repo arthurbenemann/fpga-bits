@@ -11,7 +11,8 @@
 DOOM_GIT  := https://github.com/wojciech-graj/doom-ascii
 DOOM_REV  := ce9f7eeb14cf1099b2a03007f919086a3a8be1e2
 SRC       ?= build/doom-ascii/src
-WAD       ?= doom1.wad
+# The shareware IWAD: a local doom1.wad, else Ubuntu's (sudo apt install doom-wad-shareware).
+WAD       ?= $(firstword $(wildcard doom1.wad /usr/share/games/doom/doom1.wad) doom1.wad)
 WAD_ADDR  ?= 0x900000
 STACK_TOP ?= 0x1800
 COLS      ?= 80
@@ -99,6 +100,9 @@ build/dg_uart.o: dg_uart.c Makefile build/opts | $(SRC)/doomgeneric.h build
 
 build/crt_doom.o: crt_doom.s | $(SRC)/doomgeneric.h build
 	riscv64-unknown-elf-as -march=rv32i -mabi=ilp32 -mno-relax $< -o $@
+
+$(WAD):
+	$(error No IWAD: sudo apt install doom-wad-shareware, or copy doom1.wad here)
 
 build/wad.o: wad.s $(WAD) | $(SRC)/doomgeneric.h build
 	riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -c -x assembler-with-cpp -DWAD_FILE='"$(abspath $(WAD))"' $< -o $@

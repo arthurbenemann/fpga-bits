@@ -58,8 +58,12 @@ clock.name: FORCE
 soc.json: soc.v video.v psram_spi.v psram_bus.v flash_spi.v $(RV)/uart_rx.v $(RV)/uart_fifo.v $(RV)/emitter_uart.v $(RV)/riscv.v $(RV)/pipe.v assemble.hexdump clock.name
 	yosys -ql soc.yslog -p 'read_verilog -I$(RV) $(YDEFS) soc.v; synth_ice40 -dsp -top PSRAM_SOC -json $@'
 
+# The CPU runs overclocked, so timing always "fails"; whether a placement works is luck.
+# SEED 5 passes memtest and pi on the board (seeds 2, 3, 4, 6, 7 don't).
+SEED ?= 5
 soc.asc: soc.json icebreaker.pcf
-	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq $(CPU_FREQ) --asc $@ --pcf icebreaker.pcf --json $<
+	nextpnr-ice40 -ql soc.nplog --up5k --package sg48 --freq $(CPU_FREQ) --asc $@ --pcf icebreaker.pcf --json $< \
+		--timing-allow-fail --seed $(SEED)
 
 soc.bin: soc.asc
 	icepack $< $@
@@ -181,6 +185,10 @@ bundle.bin: $(BUNDLE)
 flash-bundle: bundle.bin
 	iceprog -o 1M bundle.bin
 
+# Everything into SPI flash: bitstream, programs, and Doom (needs doom/doom1.wad).
+flash: soc-prog flash-bundle
+	$(MAKE) -C doom flash
+
 $(PROJ).out: $(PROJ).v bench_iverilog.v
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 $^ -o $@
 
@@ -196,4 +204,4 @@ clean:
 
 .SECONDARY:
 FORCE:
-.PHONY: all prog clean sim soc soc-prog load bundle flash-bundle FORCE
+.PHONY: flash all prog clean sim soc soc-prog load bundle flash-bundle FORCE
