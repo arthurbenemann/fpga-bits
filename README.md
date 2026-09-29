@@ -1,7 +1,9 @@
 # fpga-bits
 
-Short VHDL modules for the [Papilio DUO](http://papilio.cc/index.php?n=Papilio.PapilioDUOHardwareGuide) FPGA board + [Logic Shield](http://papilio.cc/index.php?n=Papilio.LogicStartShield).
+Small FPGA projects, by board family.
 
-![boards](http://cdn1.bigcommerce.com/server3200/wgbxee/products/141/images/593/LS_Shield_Bundle__22274.1428429105.1280.1280.jpg?c=2)
-
-Most of the code comes from the [Mike Field's IntroToSpartanFPGAs](https://github.com/hamsternz/IntroToSpartanFPGABook/blob/master/IntroToSpartanFPGABook.pdf?raw=true)
+- [`ice40/`](ice40/): iCEBreaker (iCE40UP5K), Verilog with the open-source yosys/nextpnr flow. The main
+  one is [`ice40/soc`](ice40/soc/): a RISC-V computer with PSRAM, HDMI output and a boot menu that
+  runs Mandelbrot, CoreMark, pi, picChess and Doom.
+- [`spartan/`](spartan/): older VHDL modules for the Papilio DUO (Spartan-6) + Logic Shield, built with
+  Xilinx ISE.

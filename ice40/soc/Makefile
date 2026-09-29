@@ -130,7 +130,7 @@ build/%.o: $(RV)/%.c march.name
 	riscv64-unknown-elf-ld -T psram.ld -m elf32lriscv -nostdlib --no-relax $(RT_OBJ) $< $(PLIBGCC) -o $*.elf
 	riscv64-unknown-elf-objcopy -O binary $*.elf $@
 
-# picChess (psram/chess/): the engine (chess/*.c) plus the ORIGINAL picChess
+# picChess (chess/): the engine (chess/*.c) plus the ORIGINAL picChess
 # GUI (chess/gui/: chessVideo.c/chessInterface.c/h/chessSet.h and
 # chessGame.c's state machine, from before the project's 2014 refactor) on
 # top of a shim (chess/vga/) standing in for the dsPIC VGA/keyboard/serial/
