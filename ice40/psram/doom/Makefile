@@ -1,4 +1,4 @@
-# Doom (doom-ascii / doomgeneric) as a PSRAM image for ../psram/soc.v.
+# Doom (doom-ascii / doomgeneric) as a PSRAM image for ../soc.v.
 #   make WAD=/path/to/doom1.wad     -> doom.img (program + IWAD, 5 MB: ~17 s upload)
 #   make load                       upload it (real key events via evdev; needs the 'input' group)
 # The upstream source is cloned into build/ at a pinned commit (not vendored);
@@ -7,7 +7,7 @@
 # Doom draws straight into the DVI framebuffer; TEXT=1 draws it on the UART
 # instead, as a COLS x ROWS text grid (e.g. COLS=160 ROWS=50 for a small font),
 # COLOR=1 tinting it with ANSI colours. VIDEO and CPU_MHZ must match the
-# bitstream (../psram/clock.mk); VIDEO=0 implies TEXT=1.
+# bitstream (../clock.mk); VIDEO=0 implies TEXT=1.
 DOOM_GIT  := https://github.com/wojciech-graj/doom-ascii
 DOOM_REV  := ce9f7eeb14cf1099b2a03007f919086a3a8be1e2
 SRC       ?= build/doom-ascii/src
@@ -18,7 +18,7 @@ COLS      ?= 80
 ROWS      ?= 25
 COLOR     ?= 0
 DOOM_ARGS ?=
-include ../psram/clock.mk
+include ../clock.mk
 TEXT      ?= $(if $(filter 1,$(VIDEO)),0,1)
 ifeq ($(TEXT),1)
 BLOCKS    ?= 6
@@ -124,9 +124,9 @@ doom.img: doom.elf
 	riscv64-unknown-elf-objcopy -O binary $< $@
 
 load: doom.img
-	../psram/load.py --baud $(BAUD) --keys $<
+	../load.py --baud $(BAUD) --keys $<
 
-# Flash layout (see ../psram/boot.c): "DOOM" magic, 4-byte LE length, then
+# Flash layout (see ../boot.c): "DOOM" magic, 4-byte LE length, then
 # the raw image, written at 0x200000.
 doom_flash.bin: doom.img
 	python3 -c "import struct; d=open('doom.img','rb').read(); \

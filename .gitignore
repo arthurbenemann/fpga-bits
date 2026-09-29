@@ -132,9 +132,9 @@ ice40/psram/boot_entry.h
 *.pyc
 ice40/psram/march.name
 ice40/psram/clock.name
-ice40/doom/build/
-ice40/doom/doom.map
-ice40/doom/*.wad
+ice40/psram/doom/build/
+ice40/psram/doom/doom.map
+ice40/psram/doom/*.wad
 
 # Claude Code
 .claude/
